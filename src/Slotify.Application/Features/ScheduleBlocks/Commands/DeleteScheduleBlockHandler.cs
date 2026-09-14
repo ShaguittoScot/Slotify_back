@@ -1,33 +1,39 @@
 using MediatR;
 using Slotify.Application.Common.Models;
+using Slotify.Domain.Interfaces;
 
 namespace Slotify.Application.Features.ScheduleBlocks.Commands;
 
 /// <summary>
 /// Handler para eliminar un bloqueo de agenda.
-/// Relacionado con: US-008
-/// 
-/// DEPENDENCIAS REQUERIDAS:
-/// - IScheduleBlockRepository: buscar y eliminar bloqueo
-/// 
-/// TODO: Implementar lógica completa.
+/// Relacionado con: US-008 (Bloqueo Manual — acción de desbloqueo)
 /// </summary>
-public class DeleteScheduleBlockHandler : IRequestHandler<DeleteScheduleBlockCommand, Result>
+public class DeleteScheduleBlockHandler(IScheduleBlockRepository scheduleBlockRepository)
+    : IRequestHandler<DeleteScheduleBlockCommand, Result>
 {
-    // TODO: Inyectar dependencias via constructor
+    private readonly IScheduleBlockRepository _scheduleBlockRepository = scheduleBlockRepository;
 
     public async Task<Result> Handle(
         DeleteScheduleBlockCommand request,
         CancellationToken cancellationToken)
     {
-        // TODO: Implementar flujo:
-        // 1. Buscar bloqueo por ID → IScheduleBlockRepository.GetByIdAsync()
-        // 2. Si no existe → Result.Fail("Bloqueo no encontrado")
-        // 3. Verificar que el bloqueo pertenece al negocio (BusinessId)
-        // 4. Eliminar → IScheduleBlockRepository.DeleteAsync()
-        // 5. Retornar Result.Ok("Bloqueo eliminado")
+        // 1. Buscar bloqueo por ID
+        var block = await _scheduleBlockRepository.GetByIdAsync(request.BlockId, cancellationToken);
+        if (block == null)
+        {
+            return Result.Fail("Bloqueo no encontrado.");
+        }
 
-        throw new NotImplementedException(
-            "US-008: Pendiente implementar DeleteScheduleBlockHandler.");
+        // 2. Verificar pertenencia al negocio si se especifica BusinessId
+        if (request.BusinessId != Guid.Empty && block.BusinessId != request.BusinessId)
+        {
+            return Result.Fail("No tiene autorización para eliminar este bloqueo.");
+        }
+
+        // 3. Eliminar
+        await _scheduleBlockRepository.DeleteAsync(block, cancellationToken);
+
+        // 4. Retornar éxito
+        return Result.Ok("Bloqueo eliminado exitosamente.");
     }
 }

@@ -5,6 +5,7 @@ using Slotify.Application.Common.Interfaces;
 using Slotify.Domain.Interfaces;
 using Slotify.Infrastructure.Data;
 using Slotify.Infrastructure.Data.Repositories;
+using Slotify.Infrastructure.Services;
 
 namespace Slotify.Infrastructure;
 
@@ -34,6 +35,13 @@ public static class DependencyInjection
         services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IBusinessRepository, BusinessRepository>();
+        services.AddScoped<IUserSessionRepository, UserSessionRepository>();
+        services.AddScoped<IScheduleBlockRepository, ScheduleBlockRepository>();
+        services.AddScoped<IAppointmentRepository, AppointmentRepository>();
+
+        // Auth Services
+        services.AddScoped<IJwtService, JwtService>();
+        services.AddScoped<IPasswordHasher, PasswordHasher>();
 
         return services;
     }

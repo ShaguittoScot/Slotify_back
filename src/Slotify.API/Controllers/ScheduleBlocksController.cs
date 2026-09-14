@@ -48,6 +48,34 @@ public class ScheduleBlocksController(IMediator mediator) : ControllerBase
     }
 
     /// <summary>
+    /// Obtiene la lista de bloqueos en un rango de fechas.
+    /// </summary>
+    [HttpGet]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> Get(
+        [FromQuery] Guid? businessId,
+        [FromQuery] DateTime startDate,
+        [FromQuery] DateTime endDate,
+        [FromQuery] Guid? employeeId,
+        CancellationToken cancellationToken)
+    {
+        // Si no se envía businessId, se toma del JWT o placeholder
+        var effectiveBusinessId = businessId ?? Guid.Empty;
+
+        var query = new Slotify.Application.Features.ScheduleBlocks.Queries.GetScheduleBlocksQuery
+        {
+            BusinessId = effectiveBusinessId,
+            StartDate = startDate,
+            EndDate = endDate,
+            EmployeeId = employeeId
+        };
+
+        var result = await _mediator.Send(query, cancellationToken);
+        return Ok(result);
+    }
+
+    /// <summary>
     /// Elimina un bloqueo existente (desbloquea el horario).
     /// </summary>
     [HttpDelete("{id:long}")]
@@ -56,15 +84,16 @@ public class ScheduleBlocksController(IMediator mediator) : ControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Delete(
         long id,
+        [FromQuery] Guid? businessId,
         CancellationToken cancellationToken)
     {
         // TODO: Extraer BusinessId del claim del JWT
-        var businessId = Guid.Empty; // Placeholder
+        var effectiveBusinessId = businessId ?? Guid.Empty;
 
         var command = new DeleteScheduleBlockCommand
         {
             BlockId = id,
-            BusinessId = businessId
+            BusinessId = effectiveBusinessId
         };
 
         var result = await _mediator.Send(command, cancellationToken);
