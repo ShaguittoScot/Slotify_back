@@ -1,0 +1,9 @@
+2026-09-08 23:38:09.556 -06:00 [DBG] Hosting starting
+2026-09-08 23:38:09.622 -06:00 [INF] User profile is available. Using 'C:\Users\evsot\AppData\Local\ASP.NET\DataProtection-Keys' as key repository and Windows DPAPI to encrypt keys at rest.
+2026-09-08 23:38:09.644 -06:00 [INF] Creating key {71bb31c6-ef08-4cd9-9b4b-8dc35345deb3} with creation date 2026-09-09 05:38:09Z, activation date 2026-09-09 05:38:09Z, and expiration date 2026-12-08 05:38:09Z.
+2026-09-08 23:38:09.664 -06:00 [INF] Writing data to file 'C:\Users\evsot\AppData\Local\ASP.NET\DataProtection-Keys\key-71bb31c6-ef08-4cd9-9b4b-8dc35345deb3.xml'.
+2026-09-08 23:38:09.750 -06:00 [INF] Now listening on: http://0.0.0.0:5272
+2026-09-08 23:38:09.750 -06:00 [INF] Application started. Press Ctrl+C to shut down.
+2026-09-08 23:38:09.751 -06:00 [INF] Hosting environment: Development
+2026-09-08 23:38:09.751 -06:00 [INF] Content root path: C:\Users\evsot\Desktop\Slotify\backend\src\Slotify.API
+2026-09-08 23:38:09.751 -06:00 [DBG] Hosting started

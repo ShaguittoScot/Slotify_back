@@ -8,24 +8,25 @@ namespace Slotify.Application.Features.Auth.Commands;
 /// Comando para registrar un nuevo administrador de negocio (DUENO).
 /// Relacionado con: US-000 (Registro de Administrador)
 /// 
-/// Flujo:
-/// 1. Validar datos (RegisterAdminValidator)
-/// 2. Verificar que el email no exista
-/// 3. Crear el Business (negocio)
-/// 4. Crear el User con rol DUENO
-/// 5. Generar tokens JWT
-/// 6. Retornar AuthResponse
+/// Flujo (con Supabase Auth):
+/// 1. Frontend registra al usuario en Supabase Auth
+/// 2. Frontend llama a POST /api/auth/sync con el ID de Supabase
+/// 3. Validar datos (RegisterAdminValidator)
+/// 4. Verificar que el email no exista en nuestra BD
+/// 5. Crear el Business (negocio)
+/// 6. Crear el User con rol DUENO y el ID de Supabase
+/// 7. Retornar AuthUserDto
 /// </summary>
-public record RegisterAdminCommand : IRequest<Result<AuthResponse>>
+public record RegisterAdminCommand : IRequest<Result<AuthUserDto>>
 {
+    /// <summary>ID generado por Supabase Auth (auth.users.id)</summary>
+    public required Guid Id { get; init; }
+
     /// <summary>Nombre completo del administrador.</summary>
     public required string FullName { get; init; }
 
     /// <summary>Correo electrónico (será el login).</summary>
     public required string Email { get; init; }
-
-    /// <summary>Contraseña en texto plano (se hasheará con BCrypt).</summary>
-    public required string Password { get; init; }
 
     /// <summary>Nombre del negocio a crear.</summary>
     public required string BusinessName { get; init; }

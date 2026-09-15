@@ -12,7 +12,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 {
     public DbSet<User> Users => Set<User>();
     public DbSet<Business> Businesses => Set<Business>();
-    public DbSet<UserSession> UserSessions => Set<UserSession>();
     public DbSet<SectorTemplate> SectorTemplates => Set<SectorTemplate>();
     public DbSet<AvailabilitySchedule> AvailabilitySchedules => Set<AvailabilitySchedule>();
     public DbSet<ScheduleBlock> ScheduleBlocks => Set<ScheduleBlock>();

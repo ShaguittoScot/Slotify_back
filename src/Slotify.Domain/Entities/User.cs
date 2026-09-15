@@ -19,8 +19,6 @@ public class User : AuditableEntity
     /// <summary>Correo electrónico único (correo).</summary>
     public string Email { get; set; } = string.Empty;
 
-    /// <summary>Hash de la contraseña (password_hash). Nunca almacenar en texto plano.</summary>
-    public string PasswordHash { get; set; } = string.Empty;
 
     /// <summary>Rol del usuario: DUENO o EMPLEADO (rol).</summary>
     public UserRole Role { get; set; } = UserRole.Owner;
@@ -38,6 +36,4 @@ public class User : AuditableEntity
     /// <summary>Negocio al que pertenece.</summary>
     public Business Business { get; set; } = null!;
 
-    /// <summary>Sesiones activas del usuario.</summary>
-    public ICollection<UserSession> Sessions { get; set; } = [];
 }

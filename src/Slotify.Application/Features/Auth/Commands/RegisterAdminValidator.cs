@@ -21,9 +21,8 @@ public class RegisterAdminValidator : AbstractValidator<RegisterAdminCommand>
             .EmailAddress().WithMessage("El formato del correo no es válido.")
             .MaximumLength(150).WithMessage("El correo no puede exceder 150 caracteres.");
 
-        RuleFor(x => x.Password)
-            .NotEmpty().WithMessage("La contraseña es requerida.")
-            .MinimumLength(8).WithMessage("La contraseña debe tener al menos 8 caracteres.");
+        RuleFor(x => x.Id)
+            .NotEmpty().WithMessage("El ID de Supabase es requerido.");
 
         RuleFor(x => x.BusinessName)
             .NotEmpty().WithMessage("El nombre del negocio es requerido.")

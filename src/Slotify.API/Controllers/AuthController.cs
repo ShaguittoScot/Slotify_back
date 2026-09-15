@@ -9,11 +9,7 @@ namespace Slotify.API.Controllers;
 /// Relacionado con: US-000 (Registro y Autenticación de Administrador)
 /// 
 /// Endpoints:
-/// - POST /api/auth/register → Registrar nuevo admin + negocio
-/// - POST /api/auth/login    → Iniciar sesión
-/// 
-/// NOTA: Estos endpoints son públicos (no requieren JWT).
-/// TODO: Agregar endpoint de refresh token.
+/// - POST /api/auth/sync → Sincronizar nuevo admin + negocio tras registro en Supabase
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
@@ -27,13 +23,13 @@ public class AuthController(IMediator mediator) : ControllerBase
     /// <remarks>
     /// Crea un usuario con rol DUENO y un negocio asociado.
     /// Opcionalmente acepta un SectorTemplateId (seleccionado en US-006).
-    /// Retorna tokens JWT para acceso inmediato.
+    /// Retorna los datos básicos del usuario creado en la BD relacional.
     /// </remarks>
-    [HttpPost("register")]
+    [HttpPost("sync")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> Register(
+    public async Task<IActionResult> Sync(
         [FromBody] RegisterAdminCommand command,
         CancellationToken cancellationToken)
     {
@@ -45,25 +41,5 @@ public class AuthController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>
-    /// Inicia sesión como administrador de negocio.
-    /// </summary>
-    /// <remarks>
-    /// Valida credenciales y retorna tokens JWT.
-    /// Actualiza la fecha de último inicio de sesión.
-    /// </remarks>
-    [HttpPost("login")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> Login(
-        [FromBody] LoginCommand command,
-        CancellationToken cancellationToken)
-    {
-        var result = await _mediator.Send(command, cancellationToken);
 
-        if (!result.Success)
-            return Unauthorized(result);
-
-        return Ok(result);
-    }
 }

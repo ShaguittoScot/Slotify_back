@@ -14,8 +14,7 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.Id)
-            .HasColumnName("id")
-            .HasDefaultValueSql("uuid_generate_v4()");
+            .HasColumnName("id");
 
         builder.Property(x => x.BusinessId)
             .HasColumnName("id_negocio")
@@ -32,10 +31,6 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .IsRequired();
         builder.HasIndex(x => x.Email).IsUnique();
 
-        builder.Property(x => x.PasswordHash)
-            .HasColumnName("password_hash")
-            .HasMaxLength(255)
-            .IsRequired();
 
         builder.Property(x => x.Role)
             .HasColumnName("rol")
