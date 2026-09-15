@@ -35,7 +35,7 @@ public static class DependencyInjection
         services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IBusinessRepository, BusinessRepository>();
-        services.AddScoped<IUserSessionRepository, UserSessionRepository>();
+
         services.AddScoped<IScheduleBlockRepository, ScheduleBlockRepository>();
         services.AddScoped<IAppointmentRepository, AppointmentRepository>();
 

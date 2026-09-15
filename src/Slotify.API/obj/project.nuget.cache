@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "Y4nr4O30j5I=",
+  "dgSpecHash": "thjOzJmtxu4=",
   "success": true,
-  "projectFilePath": "C:\\Users\\evsot\\Desktop\\Slotify\\backend\\src\\Slotify.API\\Slotify.API.csproj",
+  "projectFilePath": "C:\\Users\\evsot\\Desktop\\Slotify_back\\src\\Slotify.API\\Slotify.API.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\evsot\\.nuget\\packages\\bcrypt.net-next\\4.0.3\\bcrypt.net-next.4.0.3.nupkg.sha512",
     "C:\\Users\\evsot\\.nuget\\packages\\fluentvalidation\\11.11.0\\fluentvalidation.11.11.0.nupkg.sha512",
