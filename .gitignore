@@ -32,3 +32,6 @@ logs/
 appsettings.Local.json
 *.local.json
 secrets.json
+
+## Documentacion
+ARQUITECTURA_BACKEND.md

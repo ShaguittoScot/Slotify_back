@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Slotify.Domain")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+05931e690dfc876c06fdc104ecb70def135df573")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+719cce23ce47ffa615ba6f52856719b5f5d3ede5")]
 [assembly: System.Reflection.AssemblyProductAttribute("Slotify.Domain")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Slotify.Domain")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
