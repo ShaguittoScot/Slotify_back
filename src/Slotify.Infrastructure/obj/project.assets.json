@@ -3394,11 +3394,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\evsot\\Desktop\\Slotify\\backend\\src\\Slotify.Infrastructure\\Slotify.Infrastructure.csproj",
+      "projectUniqueName": "C:\\Users\\evsot\\Desktop\\Slotify_back\\src\\Slotify.Infrastructure\\Slotify.Infrastructure.csproj",
       "projectName": "Slotify.Infrastructure",
-      "projectPath": "C:\\Users\\evsot\\Desktop\\Slotify\\backend\\src\\Slotify.Infrastructure\\Slotify.Infrastructure.csproj",
+      "projectPath": "C:\\Users\\evsot\\Desktop\\Slotify_back\\src\\Slotify.Infrastructure\\Slotify.Infrastructure.csproj",
       "packagesPath": "C:\\Users\\evsot\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\evsot\\Desktop\\Slotify\\backend\\src\\Slotify.Infrastructure\\obj\\",
+      "outputPath": "C:\\Users\\evsot\\Desktop\\Slotify_back\\src\\Slotify.Infrastructure\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -3417,11 +3417,11 @@
         "net9.0": {
           "targetAlias": "net9.0",
           "projectReferences": {
-            "C:\\Users\\evsot\\Desktop\\Slotify\\backend\\src\\Slotify.Application\\Slotify.Application.csproj": {
-              "projectPath": "C:\\Users\\evsot\\Desktop\\Slotify\\backend\\src\\Slotify.Application\\Slotify.Application.csproj"
+            "C:\\Users\\evsot\\Desktop\\Slotify_back\\src\\Slotify.Application\\Slotify.Application.csproj": {
+              "projectPath": "C:\\Users\\evsot\\Desktop\\Slotify_back\\src\\Slotify.Application\\Slotify.Application.csproj"
             },
-            "C:\\Users\\evsot\\Desktop\\Slotify\\backend\\src\\Slotify.Domain\\Slotify.Domain.csproj": {
-              "projectPath": "C:\\Users\\evsot\\Desktop\\Slotify\\backend\\src\\Slotify.Domain\\Slotify.Domain.csproj"
+            "C:\\Users\\evsot\\Desktop\\Slotify_back\\src\\Slotify.Domain\\Slotify.Domain.csproj": {
+              "projectPath": "C:\\Users\\evsot\\Desktop\\Slotify_back\\src\\Slotify.Domain\\Slotify.Domain.csproj"
             }
           }
         }
@@ -3481,7 +3481,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Users\\evsot\\AppData\\Local\\Microsoft\\dotnet\\sdk\\9.0.300/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Users\\evsot\\AppData\\Local\\dotnet\\sdk\\9.0.318/PortableRuntimeIdentifierGraph.json"
       }
     }
   }
