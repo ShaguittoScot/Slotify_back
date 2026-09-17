@@ -31,6 +31,11 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .IsRequired();
         builder.HasIndex(x => x.Email).IsUnique();
 
+        builder.Property(x => x.PasswordHash)
+            .HasColumnName("password_hash")
+            .HasMaxLength(255)
+            .IsRequired();
+
 
         builder.Property(x => x.Role)
             .HasColumnName("rol")

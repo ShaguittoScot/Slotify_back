@@ -19,6 +19,9 @@ public class User : AuditableEntity
     /// <summary>Correo electrónico único (correo).</summary>
     public string Email { get; set; } = string.Empty;
 
+    /// <summary>Hash de contraseña (obsoleto con Supabase Auth pero requerido por DB schema viejo).</summary>
+    public string PasswordHash { get; set; } = "managed_by_supabase";
+
 
     /// <summary>Rol del usuario: DUENO o EMPLEADO (rol).</summary>
     public UserRole Role { get; set; } = UserRole.Owner;

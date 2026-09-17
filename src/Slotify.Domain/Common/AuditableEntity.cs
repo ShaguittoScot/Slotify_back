@@ -6,7 +6,11 @@ namespace Slotify.Domain.Common;
 public abstract class AuditableEntity : BaseEntity
 {
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
     public string? CreatedBy { get; set; }
+    
     public DateTime? UpdatedAt { get; set; }
+    
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
     public string? UpdatedBy { get; set; }
 }
