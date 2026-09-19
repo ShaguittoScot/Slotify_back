@@ -27,6 +27,35 @@ ehthumbs.db
 ## Logs
 *.log
 logs/
+## .NET Core / C#
+bin/
+obj/
+out/
+[Bb]uild/
+
+## Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+
+## Visual Studio Code
+.vscode/
+
+## Rider
+.idea/
+*.DotSettings.user
+
+## OS Files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+## Logs
+*.log
+logs/
 
 ## Environment / Secrets
 appsettings.Local.json
@@ -35,3 +64,4 @@ secrets.json
 
 ## Documentacion
 ARQUITECTURA_BACKEND.md
+FLUJO_CODIGO.md
