@@ -18,16 +18,3 @@ public record AuthResponse
     /// <summary>Datos básicos del usuario autenticado.</summary>
     public required AuthUserDto User { get; init; }
 }
-
-/// <summary>
-/// Datos del usuario incluidos en la respuesta de auth.
-/// Subconjunto seguro — NO incluye passwordHash.
-/// </summary>
-public record AuthUserDto
-{
-    public required Guid Id { get; init; }
-    public required string FullName { get; init; }
-    public required string Email { get; init; }
-    public required string Role { get; init; }
-    public required Guid BusinessId { get; init; }
-}

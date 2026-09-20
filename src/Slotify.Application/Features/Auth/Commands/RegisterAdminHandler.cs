@@ -33,7 +33,7 @@ public class RegisterAdminHandler(
             Name = request.BusinessName,
             Slug = businessSlug,
             Phone = request.BusinessPhone,
-            SectorTemplateId = request.SectorTemplateId
+            SectorTemplateId = null // TODO: Fix seed data for plantillas_sector
         };
 
         var user = new User
