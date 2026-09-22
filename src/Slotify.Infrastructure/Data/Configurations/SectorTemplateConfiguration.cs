@@ -32,5 +32,11 @@ public class SectorTemplateConfiguration : IEntityTypeConfiguration<SectorTempla
             .HasColumnType("jsonb")
             .HasDefaultValueSql("'[]'::jsonb")
             .IsRequired();
+
+        builder.Property(x => x.FormConfig)
+            .HasColumnName("configuracion_formulario")
+            .HasColumnType("jsonb")
+            .HasDefaultValueSql("'{}'::jsonb")
+            .IsRequired();
     }
 }

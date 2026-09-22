@@ -29,6 +29,12 @@ public class SectorTemplate
     /// </summary>
     public string SuggestedServices { get; set; } = "[]";
 
+    /// <summary>
+    /// Configuración dinámica del formulario de reservas en formato JSON.
+    /// Dictamina qué campos requiere este giro (ej. seleccionar empleado, número de personas, etc.)
+    /// </summary>
+    public string FormConfig { get; set; } = "{}";
+
     // ── Navegación ──────────────────────────────────────────
     /// <summary>Negocios que usan esta plantilla.</summary>
     public ICollection<Business> Businesses { get; set; } = [];
