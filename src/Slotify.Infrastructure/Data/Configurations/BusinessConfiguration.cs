@@ -50,6 +50,11 @@ public class BusinessConfiguration : IEntityTypeConfiguration<Business>
         builder.Property(x => x.SectorTemplateId)
             .HasColumnName("id_plantilla_sector");
 
+        builder.Property(x => x.CustomFormConfig)
+            .HasColumnName("configuracion_formulario_personalizada")
+            .HasColumnType("jsonb")
+            .IsRequired(false);
+
         builder.Property(x => x.CreatedAt)
             .HasColumnName("fecha_creacion")
             .HasDefaultValueSql("CURRENT_TIMESTAMP");

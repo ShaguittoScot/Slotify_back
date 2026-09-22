@@ -30,6 +30,9 @@ public class Business : AuditableEntity
     /// <summary>FK a la plantilla de sector seleccionada (id_plantilla_sector).</summary>
     public int? SectorTemplateId { get; set; }
 
+    /// <summary>Configuración personalizada del formulario (configuracion_formulario_personalizada).</summary>
+    public string? CustomFormConfig { get; set; }
+
     // ── Navegación ──────────────────────────────────────────
     /// <summary>Plantilla de sector (giro comercial) asociada.</summary>
     public SectorTemplate? SectorTemplate { get; set; }

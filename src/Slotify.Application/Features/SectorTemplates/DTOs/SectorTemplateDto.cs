@@ -17,6 +17,18 @@ public record SectorTemplateDto
 
     /// <summary>Servicios sugeridos (deserializado del JSONB).</summary>
     public required List<SuggestedServiceDto> SuggestedServices { get; init; }
+
+    /// <summary>Configuración del formulario (deserializado del JSONB).</summary>
+    public required BookingFormConfigDto FormConfig { get; init; }
+}
+
+public record BookingFormConfigDto
+{
+    public bool RequiresProfessional { get; init; }
+    public bool RequiresService { get; init; }
+    public bool RequiresGuestCount { get; init; }
+    public bool RequiresTable { get; init; }
+    public bool RequiresPatientDetails { get; init; }
 }
 
 /// <summary>

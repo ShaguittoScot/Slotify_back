@@ -13,23 +13,26 @@ namespace Slotify.Application.Features.SectorTemplates.Queries;
 /// 
 /// TODO: Implementar lógica + mapeo a DTO (deserializar JSONB).
 /// </summary>
-public class GetSectorTemplatesHandler
+public class GetSectorTemplatesHandler(Slotify.Domain.Interfaces.ISectorTemplateRepository repository)
     : IRequestHandler<GetSectorTemplatesQuery, Result<List<SectorTemplateDto>>>
 {
-    // TODO: Inyectar ISectorTemplateRepository via constructor
+    private readonly Slotify.Domain.Interfaces.ISectorTemplateRepository _repository = repository;
 
     public async Task<Result<List<SectorTemplateDto>>> Handle(
         GetSectorTemplatesQuery request,
         CancellationToken cancellationToken)
     {
-        // TODO: Implementar:
-        // 1. Obtener todas las plantillas → ISectorTemplateRepository.GetAllAsync()
-        // 2. Mapear cada SectorTemplate a SectorTemplateDto
-        //    - Deserializar DefaultModules (JSONB string → List<string>)
-        //    - Deserializar SuggestedServices (JSONB string → List<SuggestedServiceDto>)
-        // 3. Retornar Result.Ok(dtos)
+        var templates = await _repository.GetAllAsync(cancellationToken);
+        
+        var dtos = templates.Select(t => new SectorTemplateDto
+        {
+            Id = t.Id,
+            Name = t.Name,
+            DefaultModules = System.Text.Json.JsonSerializer.Deserialize<List<string>>(t.DefaultModules) ?? [],
+            SuggestedServices = System.Text.Json.JsonSerializer.Deserialize<List<SuggestedServiceDto>>(t.SuggestedServices) ?? [],
+            FormConfig = System.Text.Json.JsonSerializer.Deserialize<BookingFormConfigDto>(t.FormConfig, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new BookingFormConfigDto()
+        }).ToList();
 
-        throw new NotImplementedException(
-            "US-006: Pendiente implementar GetSectorTemplatesHandler.");
+        return Result<List<SectorTemplateDto>>.Ok(dtos);
     }
 }
