@@ -24,11 +24,20 @@ public record SectorTemplateDto
 
 public record BookingFormConfigDto
 {
-    public bool RequiresProfessional { get; init; }
-    public bool RequiresService { get; init; }
-    public bool RequiresGuestCount { get; init; }
-    public bool RequiresTable { get; init; }
-    public bool RequiresPatientDetails { get; init; }
+    public string Title { get; init; } = string.Empty;
+    public string Description { get; init; } = string.Empty;
+    public string PresentationStyle { get; init; } = "classic_scroll";
+    public string AccentColor { get; init; } = "#6366F1";
+    public List<FormFieldDto> Fields { get; init; } = [];
+}
+
+public record FormFieldDto
+{
+    public string Id { get; init; } = string.Empty;
+    public string Type { get; init; } = string.Empty;
+    public string Question { get; init; } = string.Empty;
+    public bool Required { get; init; }
+    public List<string>? Options { get; init; }
 }
 
 /// <summary>
