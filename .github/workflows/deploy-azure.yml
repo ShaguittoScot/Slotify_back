@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 env:
-  AZURE_WEBAPP_NAME: slotify-api    # CAMBIAR: El nombre de tu App Service en Azure
+  AZURE_WEBAPP_NAME: slotify-api    # Nombre de tu App Service en Azure
   AZURE_WEBAPP_PACKAGE_PATH: '.'    # Ruta al proyecto a publicar
   DOTNET_VERSION: '8.0.x'           # Versión de .NET
 
