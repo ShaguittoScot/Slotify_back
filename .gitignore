@@ -65,3 +65,5 @@ secrets.json
 ## Documentacion
 ARQUITECTURA_BACKEND.md
 FLUJO_CODIGO.md
+
+.env

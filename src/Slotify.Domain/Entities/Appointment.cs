@@ -43,7 +43,13 @@ public class Appointment : AuditableEntity
     /// <summary>Total pactado de la cita (total_pactado).</summary>
     public decimal AgreedTotal { get; set; } = 0.00m;
 
+    /// <summary>FK al cliente registrado, nullable (id_cliente).</summary>
+    public Guid? ClientId { get; set; }
+
     // ── Navegación ──────────────────────────────────────────
     /// <summary>Negocio donde se agendó la cita.</summary>
     public Business Business { get; set; } = null!;
+
+    /// <summary>Cliente que agendó la cita (si está registrado).</summary>
+    public Client? Client { get; set; }
 }

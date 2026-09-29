@@ -1,15 +1,15 @@
 namespace Slotify.Application.Features.Auth.DTOs;
 
 /// <summary>
-/// Datos del usuario incluidos en la respuesta de autenticación.
+/// DTO con datos del cliente retornado tras registro / consulta.
 /// </summary>
-public record AuthUserDto
+public record ClientDto
 {
     public required Guid Id { get; init; }
+    public Guid? SupabaseId { get; init; }
     public required string FirstName { get; init; }
     public string LastName { get; init; } = string.Empty;
     public required string FullName { get; init; }
     public required string Email { get; init; }
-    public required string Role { get; init; }
-    public required Guid BusinessId { get; init; }
+    public string? Phone { get; init; }
 }

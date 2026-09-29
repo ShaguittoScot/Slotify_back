@@ -22,8 +22,14 @@ public record RegisterAdminCommand : IRequest<Result<AuthUserDto>>
     /// <summary>ID generado por Supabase Auth (auth.users.id)</summary>
     public required Guid Id { get; init; }
 
-    /// <summary>Nombre completo del administrador.</summary>
-    public required string FullName { get; init; }
+    /// <summary>Nombre del administrador.</summary>
+    public string FirstName { get; init; } = string.Empty;
+
+    /// <summary>Apellido del administrador.</summary>
+    public string LastName { get; init; } = string.Empty;
+
+    /// <summary>Nombre completo del administrador (retrocompatibilidad).</summary>
+    public string? FullName { get; init; }
 
     /// <summary>Correo electrónico (será el login).</summary>
     public required string Email { get; init; }
