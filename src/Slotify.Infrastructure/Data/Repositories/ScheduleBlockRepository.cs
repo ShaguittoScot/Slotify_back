@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Slotify.Domain.Entities;
 using Slotify.Domain.Interfaces;
 
@@ -19,7 +19,7 @@ public class ScheduleBlockRepository(AppDbContext context) : IScheduleBlockRepos
         CancellationToken cancellationToken = default)
     {
         return await _context.ScheduleBlocks
-            .Where(b => b.BusinessId == businessId
+            .Where(b => (businessId == Guid.Empty || b.BusinessId == businessId)
                      && b.StartDateTime < endDate
                      && b.EndDateTime > startDate)
             .OrderBy(b => b.StartDateTime)

@@ -36,10 +36,21 @@ public class RegisterAdminHandler(
             SectorTemplateId = null // TODO: Fix seed data for plantillas_sector
         };
 
+        var firstName = !string.IsNullOrWhiteSpace(request.FirstName)
+            ? request.FirstName.Trim()
+            : (!string.IsNullOrWhiteSpace(request.FullName) ? request.FullName.Trim().Split(' ', 2)[0] : "Usuario");
+
+        var lastName = !string.IsNullOrWhiteSpace(request.LastName)
+            ? request.LastName.Trim()
+            : (!string.IsNullOrWhiteSpace(request.FullName) && request.FullName.Trim().Contains(' ') 
+                ? request.FullName.Trim().Split(' ', 2)[1] 
+                : string.Empty);
+
         var user = new User
         {
             Id = request.Id, // Usamos el ID generado por Supabase Auth
-            FullName = request.FullName,
+            FirstName = firstName,
+            LastName = lastName,
             Email = request.Email,
             Role = UserRole.Owner,
             Business = business
@@ -53,6 +64,8 @@ public class RegisterAdminHandler(
         return Result<AuthUserDto>.Ok(new AuthUserDto
         {
             Id = user.Id,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
             FullName = user.FullName,
             Email = user.Email,
             Role = user.Role.ToString(),

@@ -12,9 +12,15 @@ public class RegisterAdminValidator : AbstractValidator<RegisterAdminCommand>
 {
     public RegisterAdminValidator()
     {
-        RuleFor(x => x.FullName)
-            .NotEmpty().WithMessage("El nombre es requerido.")
-            .MaximumLength(150).WithMessage("El nombre no puede exceder 150 caracteres.");
+        RuleFor(x => x)
+            .Must(x => !string.IsNullOrWhiteSpace(x.FirstName) || !string.IsNullOrWhiteSpace(x.FullName))
+            .WithMessage("El nombre es requerido.");
+
+        RuleFor(x => x.FirstName)
+            .MaximumLength(100).WithMessage("El nombre no puede exceder 100 caracteres.");
+
+        RuleFor(x => x.LastName)
+            .MaximumLength(100).WithMessage("El apellido no puede exceder 100 caracteres.");
 
         RuleFor(x => x.Email)
             .NotEmpty().WithMessage("El correo es requerido.")
