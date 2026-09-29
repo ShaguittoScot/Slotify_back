@@ -20,10 +20,16 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .HasColumnName("id_negocio")
             .IsRequired();
 
-        builder.Property(x => x.FullName)
-            .HasColumnName("nombre_completo")
-            .HasMaxLength(150)
+        builder.Property(x => x.FirstName)
+            .HasColumnName("nombre")
+            .HasMaxLength(100)
             .IsRequired();
+
+        builder.Property(x => x.LastName)
+            .HasColumnName("apellido")
+            .HasMaxLength(100);
+
+        builder.Ignore(x => x.FullName);
 
         builder.Property(x => x.Email)
             .HasColumnName("correo")

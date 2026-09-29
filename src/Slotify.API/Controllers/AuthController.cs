@@ -41,5 +41,21 @@ public class AuthController(IMediator mediator) : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>
+    /// Registra o sincroniza un cliente consumidor (CLIENTE) en la tabla clientes.
+    /// </summary>
+    [HttpPost("sync-client")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> SyncClient(
+        [FromBody] RegisterClientCommand command,
+        CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(command, cancellationToken);
 
+        if (!result.Success)
+            return BadRequest(result);
+
+        return Ok(result);
+    }
 }

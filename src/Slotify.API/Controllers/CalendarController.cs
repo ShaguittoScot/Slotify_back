@@ -36,16 +36,15 @@ public class CalendarController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> GetSlots(
         [FromQuery] DateTime startDate,
         [FromQuery] DateTime endDate,
+        [FromQuery] Guid? businessId,
         [FromQuery] Guid? employeeId,
         CancellationToken cancellationToken)
     {
-        // TODO: Extraer BusinessId del claim del JWT autenticado
-        // var businessId = Guid.Parse(User.FindFirst("businessId")?.Value ?? "");
-        var businessId = Guid.Empty; // Placeholder hasta implementar JWT
+        var effectiveBusinessId = businessId ?? Guid.Empty;
 
         var query = new GetCalendarSlotsQuery
         {
-            BusinessId = businessId,
+            BusinessId = effectiveBusinessId,
             StartDate = startDate,
             EndDate = endDate,
             EmployeeId = employeeId
@@ -54,4 +53,68 @@ public class CalendarController(IMediator mediator) : ControllerBase
         var result = await _mediator.Send(query, cancellationToken);
         return Ok(result);
     }
+
+    /// <summary>
+    /// Crea una nueva cita en el calendario.
+    /// </summary>
+    [HttpPost("appointments")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> CreateAppointment(
+        [FromBody] CreateAppointmentDto dto,
+        [FromServices] Slotify.Infrastructure.Data.AppDbContext context,
+        CancellationToken cancellationToken)
+    {
+        var businessId = dto.BusinessId;
+        if (businessId == Guid.Empty)
+        {
+            var defaultBusiness = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(context.Businesses, cancellationToken);
+            if (defaultBusiness != null)
+            {
+                businessId = defaultBusiness.Id;
+            }
+            else
+            {
+                var newBusiness = new Slotify.Domain.Entities.Business
+                {
+                    Id = Guid.NewGuid(),
+                    Name = "Mi Negocio",
+                    Phone = "+52 55 1234 5678",
+                    SectorTemplateId = 2
+                };
+                context.Businesses.Add(newBusiness);
+                await context.SaveChangesAsync(cancellationToken);
+                businessId = newBusiness.Id;
+            }
+        }
+
+        var apt = new Slotify.Domain.Entities.Appointment
+        {
+            Id = Guid.NewGuid(),
+            BusinessId = businessId,
+            StartTime = dto.StartTime,
+            EndTime = dto.EndTime,
+            ClientName = dto.ClientName,
+            ClientEmail = dto.ClientEmail ?? "cliente@ejemplo.com",
+            ClientPhone = dto.ClientPhone ?? "+52 55 1234 5678",
+            Status = Slotify.Domain.Enums.AppointmentStatus.Confirmed,
+            CancellationToken = Guid.NewGuid().ToString("N"),
+            AgreedTotal = dto.AgreedTotal
+        };
+
+        context.Appointments.Add(apt);
+        await context.SaveChangesAsync(cancellationToken);
+
+        return Ok(new { success = true, id = apt.Id, businessId });
+    }
+}
+
+public record CreateAppointmentDto
+{
+    public Guid BusinessId { get; init; } = Guid.Empty;
+    public required DateTime StartTime { get; init; }
+    public required DateTime EndTime { get; init; }
+    public required string ClientName { get; init; }
+    public string? ClientEmail { get; init; }
+    public string? ClientPhone { get; init; }
+    public decimal AgreedTotal { get; init; } = 0.00m;
 }

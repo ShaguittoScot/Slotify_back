@@ -13,8 +13,16 @@ public class User : AuditableEntity
     /// <summary>Negocio al que pertenece el usuario (id_negocio).</summary>
     public Guid BusinessId { get; set; }
 
-    /// <summary>Nombre completo del usuario (nombre_completo).</summary>
-    public string FullName { get; set; } = string.Empty;
+    /// <summary>Nombre del usuario (nombre).</summary>
+    public string FirstName { get; set; } = string.Empty;
+
+    /// <summary>Apellido del usuario (apellido).</summary>
+    public string LastName { get; set; } = string.Empty;
+
+    /// <summary>Nombre completo calculado.</summary>
+    public string FullName => string.IsNullOrWhiteSpace(LastName) 
+        ? FirstName 
+        : $"{FirstName} {LastName}".Trim();
 
     /// <summary>Correo electrónico único (correo).</summary>
     public string Email { get; set; } = string.Empty;
