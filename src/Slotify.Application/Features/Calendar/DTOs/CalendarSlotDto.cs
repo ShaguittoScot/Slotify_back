@@ -29,6 +29,15 @@ public record CalendarSlotDto
 
     /// <summary>Motivo del bloqueo (solo para bloqueos).</summary>
     public string? BlockReason { get; init; }
+
+    /// <summary>Teléfono del cliente.</summary>
+    public string? ClientPhone { get; init; }
+
+    /// <summary>Precio del servicio.</summary>
+    public string? ServicePrice { get; init; }
+
+    /// <summary>Nombre del empleado asignado.</summary>
+    public string? EmployeeName { get; init; }
 }
 
 /// <summary>
