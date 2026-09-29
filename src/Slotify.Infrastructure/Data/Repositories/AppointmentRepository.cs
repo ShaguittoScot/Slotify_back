@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Slotify.Domain.Entities;
 using Slotify.Domain.Interfaces;
 
@@ -16,7 +16,7 @@ public class AppointmentRepository(AppDbContext context) : Repository<Appointmen
         CancellationToken cancellationToken = default)
     {
         return await _dbSet
-            .Where(a => a.BusinessId == businessId
+            .Where(a => (businessId == Guid.Empty || a.BusinessId == businessId)
                      && a.StartTime < endDate
                      && a.EndTime > startDate)
             .OrderBy(a => a.StartTime)
