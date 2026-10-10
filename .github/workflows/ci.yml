@@ -39,7 +39,7 @@ jobs:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
       run: |
-        dotnet-sonarscanner begin /k:"Slotify_back" /d:sonar.token="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="${{ secrets.SONAR_HOST_URL }}" /d:sonar.cs.vstest.reportsPaths="**/TestResults/*.trx"
+        dotnet-sonarscanner begin /k:"ShaguittoScot_Slotify_Back" /o:"shaguittoscot" /d:sonar.token="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="${{ secrets.SONAR_HOST_URL }}" /d:sonar.cs.vstest.reportsPaths="**/TestResults/*.trx"
         dotnet build --no-restore --configuration Release
         dotnet test --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=test-results.trx"
         dotnet-sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
