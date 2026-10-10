@@ -51,7 +51,3 @@ jobs:
         name: test-results
         path: '**/TestResults/*.trx'
 
-    - name: Notify on Failure
-      if: failure()
-      run: |
-        curl -X POST -H "Content-Type: application/json" -d "{\"content\": \"🚨 **CI Pipeline Failed** in \`${{ github.repository }}\`!\\nView run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" ${{ secrets.WEBHOOK_URL }}
