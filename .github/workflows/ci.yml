@@ -22,14 +22,27 @@ jobs:
       with:
         dotnet-version: 9.0.x
 
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Install SonarScanner for .NET
+      run: dotnet tool install --global dotnet-sonarscanner
+
     - name: Restore dependencies
       run: dotnet restore
 
-    - name: Build
-      run: dotnet build --no-restore --configuration Release
-
-    - name: Test
-      run: dotnet test --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=test-results.trx"
+    - name: Build and Test with SonarQube
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      run: |
+        dotnet-sonarscanner begin /k:"Slotify_back" /d:sonar.token="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="${{ secrets.SONAR_HOST_URL }}" /d:sonar.cs.vstest.reportsPaths="**/TestResults/*.trx"
+        dotnet build --no-restore --configuration Release
+        dotnet test --no-build --configuration Release --verbosity normal --logger "trx;LogFileName=test-results.trx"
+        dotnet-sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
 
     - name: Upload test results
       uses: actions/upload-artifact@v4
@@ -37,3 +50,8 @@ jobs:
       with:
         name: test-results
         path: '**/TestResults/*.trx'
+
+    - name: Notify on Failure
+      if: failure()
+      run: |
+        curl -X POST -H "Content-Type: application/json" -d "{\"content\": \"🚨 **CI Pipeline Failed** in \`${{ github.repository }}\`!\\nView run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" ${{ secrets.WEBHOOK_URL }}
