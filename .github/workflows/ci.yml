@@ -2,13 +2,15 @@ name: .NET CI
 
 on:
   push:
-    branches: 
+    branches:
       - main
       - 'sprint-*'
+      - 'Sprint-*'
   pull_request:
-    branches: 
+    branches:
       - main
       - 'sprint-*'
+      - 'Sprint-*'
 
 jobs:
   build:
@@ -59,6 +61,8 @@ jobs:
     if: always()
 
     steps:
+    - uses: actions/checkout@v4
+
     - name: Set status info
       id: status
       run: |
@@ -80,7 +84,7 @@ jobs:
       run: |
         SHORT_SHA="${{ github.sha }}"
         SHORT_SHA="${SHORT_SHA:0:7}"
-        COMMIT_MSG=$(echo "${{ github.event.head_commit.message }}" | head -n 1 | cut -c1-80)
+        COMMIT_MSG=$(git log -1 --pretty=%s | cut -c1-80)
         EVENT_TYPE="${{ github.event_name }}"
 
         if [ "$EVENT_TYPE" == "pull_request" ]; then
