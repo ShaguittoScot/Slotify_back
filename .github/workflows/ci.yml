@@ -97,43 +97,33 @@ jobs:
           TRIGGER="Push a \`${BRANCH}\`"
         fi
 
-        curl -s -H "Content-Type: application/json" \
-          -d "{
-            \"embeds\": [{
-              \"title\": \"${{ steps.status.outputs.emoji }} Slotify Backend CI — ${{ steps.status.outputs.title }}\",
-              \"description\": \"${{ steps.status.outputs.status }}\",
-              \"color\": ${{ steps.status.outputs.color }},
-              \"fields\": [
-                {
-                  \"name\": \"📋 Trigger\",
-                  \"value\": \"${TRIGGER}\",
-                  \"inline\": true
-                },
-                {
-                  \"name\": \"🌿 Rama\",
-                  \"value\": \"\`${BRANCH}\`\",
-                  \"inline\": true
-                },
-                {
-                  \"name\": \"👤 Autor\",
-                  \"value\": \"${ACTOR}\",
-                  \"inline\": true
-                },
-                {
-                  \"name\": \"💬 Commit\",
-                  \"value\": \"\`${SHORT_SHA}\` — ${COMMIT_MSG}\",
-                  \"inline\": false
-                },
-                {
-                  \"name\": \"🔗 Ver run\",
-                  \"value\": \"[Abrir en GitHub Actions](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\",
-                  \"inline\": false
-                }
+        # Construir JSON de forma segura con jq (maneja tildes, comillas, etc.)
+        PAYLOAD=$(jq -n \
+          --arg title "${{ steps.status.outputs.emoji }} Slotify Backend CI — ${{ steps.status.outputs.title }}" \
+          --arg description "${{ steps.status.outputs.status }}" \
+          --argjson color ${{ steps.status.outputs.color }} \
+          --arg trigger "$TRIGGER" \
+          --arg branch "\`${BRANCH}\`" \
+          --arg actor "$ACTOR" \
+          --arg commit "\`${SHORT_SHA}\` — ${COMMIT_MSG}" \
+          --arg run_url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+          --arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+          '{
+            embeds: [{
+              title: $title,
+              description: $description,
+              color: $color,
+              fields: [
+                {name: "📋 Trigger",  value: $trigger, inline: true},
+                {name: "🌿 Rama",     value: $branch,  inline: true},
+                {name: "👤 Autor",    value: $actor,   inline: true},
+                {name: "💬 Commit",   value: $commit,  inline: false},
+                {name: "🔗 Ver run",  value: ("[Abrir en GitHub Actions](" + $run_url + ")"), inline: false}
               ],
-              \"footer\": {
-                \"text\": \"Slotify Backend CI • GitHub Actions\"
-              },
-              \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
+              footer: {text: "Slotify Backend CI • GitHub Actions"},
+              timestamp: $timestamp
             }]
-          }" \
-          "$DISCORD_WEBHOOK"
+          }')
+
+        echo "Payload: $PAYLOAD"
+        curl -i -H "Content-Type: application/json" -d "$PAYLOAD" "$DISCORD_WEBHOOK"
