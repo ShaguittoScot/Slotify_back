@@ -6,7 +6,6 @@ using Slotify.Domain.Entities;
 /// Repositorio para plantillas de sector (giros comerciales).
 /// Relacionado con: US-006 (Selector de Giro Comercial),
 ///                  US-002 (Implementación de Plantillas)
-/// 
 /// NOTA: SectorTemplate usa int PK, por lo que no hereda de IRepository&lt;T&gt;
 /// (que requiere BaseEntity con Guid PK).
 /// </summary>
