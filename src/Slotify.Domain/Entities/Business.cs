@@ -1,4 +1,4 @@
-namespace Slotify.Domain.Entities;
+﻿namespace Slotify.Domain.Entities;
 
 using Slotify.Domain.Common;
 
@@ -33,10 +33,23 @@ public class Business : AuditableEntity
     /// <summary>Configuración personalizada del formulario (configuracion_formulario_personalizada).</summary>
     public string? CustomFormConfig { get; set; }
 
-    // ── Navegación ──────────────────────────────────────────
+    // ── Navegación ────────────────────────────────────────────────────────────
     /// <summary>Plantilla de sector (giro comercial) asociada.</summary>
     public SectorTemplate? SectorTemplate { get; set; }
 
     /// <summary>Usuarios del negocio.</summary>
     public ICollection<User> Users { get; set; } = [];
+
+    // ── Lógica de Dominio ─────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Genera el slug URL-friendly a partir del nombre del negocio.
+    /// Regla: minúsculas, sin espacios (reemplazados por guiones).
+    /// Centralizado aquí (SRP) para que cualquier cambio de regla
+    /// solo requiera editar esta clase.
+    /// </summary>
+    /// <param name="name">Nombre del negocio.</param>
+    /// <returns>Slug generado. Ejemplo: "Mi Barbería" → "mi-barbería"</returns>
+    public static string GenerateSlug(string name) =>
+        name.Trim().ToLowerInvariant().Replace(" ", "-");
 }
