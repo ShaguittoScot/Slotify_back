@@ -4,7 +4,7 @@ using Slotify.Domain.Entities;
 
 /// <summary>
 /// Repositorio para citas/reservas.
-/// Relacionado con: US-003 (Calendario muestra citas existentes)
+/// Relacionado con: US-003 (Calendario muestra citas existentes), US-022 (Aislamiento por negocio).
 /// </summary>
 public interface IAppointmentRepository : IRepository<Appointment>
 {
@@ -19,9 +19,10 @@ public interface IAppointmentRepository : IRepository<Appointment>
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Obtiene las citas de un empleado específico en un rango de fechas.
+    /// Obtiene las citas de un empleado específico dentro de un negocio en un rango de fechas.
     /// </summary>
     Task<IReadOnlyList<Appointment>> GetByEmployeeAndDateRangeAsync(
+        Guid businessId,
         Guid employeeId,
         DateTime startDate,
         DateTime endDate,

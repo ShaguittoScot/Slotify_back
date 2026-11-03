@@ -6,6 +6,7 @@ namespace Slotify.Infrastructure.Data.Repositories;
 
 /// <summary>
 /// Implementación EF Core para IAppointmentRepository.
+/// Relacionado con: US-022 (Aislamiento estricto por BusinessId).
 /// </summary>
 public class AppointmentRepository(AppDbContext context) : Repository<Appointment>(context), IAppointmentRepository
 {
@@ -15,8 +16,11 @@ public class AppointmentRepository(AppDbContext context) : Repository<Appointmen
         DateTime endDate,
         CancellationToken cancellationToken = default)
     {
+        if (businessId == Guid.Empty)
+            return [];
+
         return await _dbSet
-            .Where(a => (businessId == Guid.Empty || a.BusinessId == businessId)
+            .Where(a => a.BusinessId == businessId
                      && a.StartTime < endDate
                      && a.EndTime > startDate)
             .OrderBy(a => a.StartTime)
@@ -24,13 +28,18 @@ public class AppointmentRepository(AppDbContext context) : Repository<Appointmen
     }
 
     public async Task<IReadOnlyList<Appointment>> GetByEmployeeAndDateRangeAsync(
+        Guid businessId,
         Guid employeeId,
         DateTime startDate,
         DateTime endDate,
         CancellationToken cancellationToken = default)
     {
+        if (businessId == Guid.Empty)
+            return [];
+
         return await _dbSet
-            .Where(a => a.EmployeeId == employeeId
+            .Where(a => a.BusinessId == businessId
+                     && a.EmployeeId == employeeId
                      && a.StartTime < endDate
                      && a.EndTime > startDate)
             .OrderBy(a => a.StartTime)

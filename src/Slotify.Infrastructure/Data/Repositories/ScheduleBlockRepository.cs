@@ -6,7 +6,7 @@ namespace Slotify.Infrastructure.Data.Repositories;
 
 /// <summary>
 /// Implementación EF Core para IScheduleBlockRepository.
-/// Relacionado con: US-008 (Bloqueo Manual de Horarios No Disponibles)
+/// Relacionado con: US-008 (Bloqueo Manual de Horarios No Disponibles), US-022 (Aislamiento por negocio).
 /// </summary>
 public class ScheduleBlockRepository(AppDbContext context) : IScheduleBlockRepository
 {
@@ -18,8 +18,11 @@ public class ScheduleBlockRepository(AppDbContext context) : IScheduleBlockRepos
         DateTime endDate,
         CancellationToken cancellationToken = default)
     {
+        if (businessId == Guid.Empty)
+            return [];
+
         return await _context.ScheduleBlocks
-            .Where(b => (businessId == Guid.Empty || b.BusinessId == businessId)
+            .Where(b => b.BusinessId == businessId
                      && b.StartDateTime < endDate
                      && b.EndDateTime > startDate)
             .OrderBy(b => b.StartDateTime)
