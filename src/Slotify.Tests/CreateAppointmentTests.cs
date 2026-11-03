@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Moq;
+using Slotify.Application.Common.Interfaces;
 using Slotify.Application.Features.Calendar.Commands;
 using Slotify.Domain.Entities;
 using Slotify.Domain.Interfaces;
@@ -73,14 +74,17 @@ public class CreateAppointmentTests
     }
 
     [Fact]
-    public async Task Handler_DeberiaCrearCita_YRetornarResultOk()
+    public async Task Handler_DeberiaCrearCita_UsandoBusinessIdDelToken_YRetornarResultOk()
     {
         // Arrange
         var mockApptRepo = new Mock<IAppointmentRepository>();
         var mockBizRepo = new Mock<IBusinessRepository>();
         var mockUow = new Mock<IUnitOfWork>();
+        var mockCurrentUser = new Mock<ICurrentUserService>();
 
         var businessId = Guid.NewGuid();
+        mockCurrentUser.Setup(c => c.BusinessId).Returns(businessId);
+
         var existingBusiness = new Business { Id = businessId, Name = "Barbería Estilo" };
         mockBizRepo.Setup(b => b.GetByIdAsync(businessId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(existingBusiness);
@@ -91,11 +95,14 @@ public class CreateAppointmentTests
         mockUow.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
 
-        var handler = new CreateAppointmentHandler(mockApptRepo.Object, mockBizRepo.Object, mockUow.Object);
+        var handler = new CreateAppointmentHandler(
+            mockApptRepo.Object,
+            mockBizRepo.Object,
+            mockUow.Object,
+            mockCurrentUser.Object);
 
         var command = new CreateAppointmentCommand
         {
-            BusinessId = businessId,
             ClientName = "Carlos Mendoza",
             ClientEmail = "carlos@ejemplo.com",
             ClientPhone = "+52 55 1234 5678",
@@ -110,7 +117,44 @@ public class CreateAppointmentTests
         // Assert
         result.Success.Should().BeTrue();
         result.Data.Should().NotBeEmpty();
-        mockApptRepo.Verify(a => a.AddAsync(It.Is<Appointment>(x => x.ClientName == "Carlos Mendoza"), It.IsAny<CancellationToken>()), Times.Once);
+        mockApptRepo.Verify(
+            a => a.AddAsync(
+                It.Is<Appointment>(x => x.ClientName == "Carlos Mendoza" && x.BusinessId == businessId),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
         mockUow.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handler_DeberiaFallar_CuandoTokenNoTieneBusinessId()
+    {
+        // Arrange
+        var mockApptRepo = new Mock<IAppointmentRepository>();
+        var mockBizRepo = new Mock<IBusinessRepository>();
+        var mockUow = new Mock<IUnitOfWork>();
+        var mockCurrentUser = new Mock<ICurrentUserService>();
+        mockCurrentUser.Setup(c => c.BusinessId).Returns((Guid?)null);
+
+        var handler = new CreateAppointmentHandler(
+            mockApptRepo.Object,
+            mockBizRepo.Object,
+            mockUow.Object,
+            mockCurrentUser.Object);
+
+        var command = new CreateAppointmentCommand
+        {
+            ClientName = "Carlos Mendoza",
+            StartTime = DateTime.UtcNow.AddHours(1),
+            EndTime = DateTime.UtcNow.AddHours(2),
+            AgreedTotal = 280m
+        };
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.Success.Should().BeFalse();
+        mockApptRepo.Verify(a => a.AddAsync(It.IsAny<Appointment>(), It.IsAny<CancellationToken>()), Times.Never);
+        mockUow.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 }

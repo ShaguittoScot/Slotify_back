@@ -1,30 +1,42 @@
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Slotify.Application.Features.Auth.Commands;
 
 namespace Slotify.API.Controllers;
 
 /// <summary>
-/// Controller de autenticación para administradores de negocio.
-/// Relacionado con: US-000 (Registro y Autenticación de Administrador)
-/// 
-/// Endpoints:
-/// - POST /api/auth/sync → Sincronizar nuevo admin + negocio tras registro en Supabase
+/// Controller de autenticación para administradores de negocio y emisión de JWT.
+/// Relacionado con: US-000 (Registro y Autenticación) y US-022 (Token con claim businessId).
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
+[AllowAnonymous]
 public class AuthController(IMediator mediator) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
 
     /// <summary>
-    /// Registra un nuevo administrador y crea su negocio.
+    /// Intercambia la sesión autenticada de Supabase (Id + Email) por un JWT de Slotify con el claim businessId.
     /// </summary>
-    /// <remarks>
-    /// Crea un usuario con rol DUENO y un negocio asociado.
-    /// Opcionalmente acepta un SectorTemplateId (seleccionado en US-006).
-    /// Retorna los datos básicos del usuario creado en la BD relacional.
-    /// </remarks>
+    [HttpPost("login")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ExchangeToken(
+        [FromBody] ExchangeTokenCommand command,
+        CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(command, cancellationToken);
+
+        if (!result.Success)
+            return BadRequest(result);
+
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Registra un nuevo administrador y crea su negocio, devolviendo el perfil y su JWT.
+    /// </summary>
     [HttpPost("sync")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
