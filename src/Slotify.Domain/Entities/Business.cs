@@ -39,4 +39,10 @@ public class Business : AuditableEntity
 
     /// <summary>Usuarios del negocio.</summary>
     public ICollection<User> Users { get; set; } = [];
+
+    /// <summary>Identidad de marca y personalización visual.</summary>
+    public BusinessBrand? Brand { get; set; }
+
+    /// <summary>Catálogo de servicios ofrecidos por el negocio.</summary>
+    public ICollection<Service> Services { get; set; } = [];
 }

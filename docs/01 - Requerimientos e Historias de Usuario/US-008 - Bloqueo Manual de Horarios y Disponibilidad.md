@@ -1,4 +1,4 @@
-﻿---
+---
 title: US-008 - Bloqueo Manual de Horarios y Disponibilidad
 tags:
   - historia-usuario

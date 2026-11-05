@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Slotify.Application.Features.Calendar.Commands;
 using Slotify.Application.Features.Calendar.Queries;
 
 namespace Slotify.API.Controllers;
@@ -56,65 +57,19 @@ public class CalendarController(IMediator mediator) : ControllerBase
 
     /// <summary>
     /// Crea una nueva cita en el calendario.
+    /// Despachada a través de MediatR hacia Slotify.Application cumpliendo CQRS.
     /// </summary>
     [HttpPost("appointments")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> CreateAppointment(
-        [FromBody] CreateAppointmentDto dto,
-        [FromServices] Slotify.Infrastructure.Data.AppDbContext context,
+        [FromBody] CreateAppointmentCommand command,
         CancellationToken cancellationToken)
     {
-        var businessId = dto.BusinessId;
-        if (businessId == Guid.Empty)
-        {
-            var defaultBusiness = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(context.Businesses, cancellationToken);
-            if (defaultBusiness != null)
-            {
-                businessId = defaultBusiness.Id;
-            }
-            else
-            {
-                var newBusiness = new Slotify.Domain.Entities.Business
-                {
-                    Id = Guid.NewGuid(),
-                    Name = "Mi Negocio",
-                    Phone = "+52 55 1234 5678",
-                    SectorTemplateId = 2
-                };
-                context.Businesses.Add(newBusiness);
-                await context.SaveChangesAsync(cancellationToken);
-                businessId = newBusiness.Id;
-            }
-        }
+        var result = await _mediator.Send(command, cancellationToken);
+        if (!result.Success)
+            return BadRequest(result);
 
-        var apt = new Slotify.Domain.Entities.Appointment
-        {
-            Id = Guid.NewGuid(),
-            BusinessId = businessId,
-            StartTime = dto.StartTime,
-            EndTime = dto.EndTime,
-            ClientName = dto.ClientName,
-            ClientEmail = dto.ClientEmail ?? "cliente@ejemplo.com",
-            ClientPhone = dto.ClientPhone ?? "+52 55 1234 5678",
-            Status = Slotify.Domain.Enums.AppointmentStatus.Confirmed,
-            CancellationToken = Guid.NewGuid().ToString("N"),
-            AgreedTotal = dto.AgreedTotal
-        };
-
-        context.Appointments.Add(apt);
-        await context.SaveChangesAsync(cancellationToken);
-
-        return Ok(new { success = true, id = apt.Id, businessId });
+        return Ok(new { success = true, id = result.Data, businessId = command.BusinessId, data = result.Data });
     }
-}
-
-public record CreateAppointmentDto
-{
-    public Guid BusinessId { get; init; } = Guid.Empty;
-    public required DateTime StartTime { get; init; }
-    public required DateTime EndTime { get; init; }
-    public required string ClientName { get; init; }
-    public string? ClientEmail { get; init; }
-    public string? ClientPhone { get; init; }
-    public decimal AgreedTotal { get; init; } = 0.00m;
 }

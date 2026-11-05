@@ -4,6 +4,8 @@ using Serilog;
 using Slotify.Application;
 using Slotify.Infrastructure;
 using System.Text;
+// Load .env file from solution/project root if present
+DotNetEnv.Env.TraversePath().Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
