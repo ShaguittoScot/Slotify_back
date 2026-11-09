@@ -6,17 +6,14 @@ namespace Slotify.Application.Features.Calendar.Queries;
 
 /// <summary>
 /// Query para obtener los slots del calendario en un rango de fechas.
-/// Relacionado con: US-003 (Navegación Multiformato en Calendario Táctil)
+/// Relacionado con: US-003 (Navegación Multiformato en Calendario Táctil), US-022 (Negocio del token).
 /// 
 /// Combina datos de: citas, bloqueos_agenda, y horarios_disponibilidad
 /// para construir la vista unificada del calendario.
-/// Filtra por el negocio del admin autenticado.
+/// El negocio se obtiene exclusivamente de ICurrentUserService.
 /// </summary>
 public record GetCalendarSlotsQuery : IRequest<Result<CalendarResponse>>
 {
-    /// <summary>ID del negocio (extraído del JWT del admin autenticado).</summary>
-    public required Guid BusinessId { get; init; }
-
     /// <summary>Fecha de inicio del rango a consultar.</summary>
     public required DateTime StartDate { get; init; }
 

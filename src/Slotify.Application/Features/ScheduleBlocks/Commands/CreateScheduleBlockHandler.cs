@@ -1,4 +1,5 @@
 using MediatR;
+using Slotify.Application.Common.Interfaces;
 using Slotify.Application.Common.Models;
 using Slotify.Domain.Entities;
 using Slotify.Domain.Enums;
@@ -8,25 +9,33 @@ namespace Slotify.Application.Features.ScheduleBlocks.Commands;
 
 /// <summary>
 /// Handler para crear un bloqueo de agenda.
-/// Relacionado con: US-008 (Bloqueo Manual de Horarios No Disponibles)
+/// Relacionado con: US-008 (Bloqueo Manual de Horarios No Disponibles), US-022 (Negocio del token).
 /// </summary>
 public class CreateScheduleBlockHandler(
     IScheduleBlockRepository scheduleBlockRepository,
-    IAppointmentRepository appointmentRepository)
+    IAppointmentRepository appointmentRepository,
+    ICurrentUserService currentUserService)
     : IRequestHandler<CreateScheduleBlockCommand, Result<long>>
 {
     private readonly IScheduleBlockRepository _scheduleBlockRepository = scheduleBlockRepository;
     private readonly IAppointmentRepository _appointmentRepository = appointmentRepository;
+    private readonly ICurrentUserService _currentUserService = currentUserService;
 
     public async Task<Result<long>> Handle(
         CreateScheduleBlockCommand request,
         CancellationToken cancellationToken)
     {
+        if (_currentUserService.BusinessId is not { } businessId || businessId == Guid.Empty)
+        {
+            return Result<long>.Fail("El usuario autenticado no tiene un negocio asignado.");
+        }
+
         // 1. Verificar si existen citas confirmadas en el rango solicitado
         IReadOnlyList<Appointment> existingAppointments;
         if (request.EmployeeId.HasValue)
         {
             existingAppointments = await _appointmentRepository.GetByEmployeeAndDateRangeAsync(
+                businessId,
                 request.EmployeeId.Value,
                 request.StartDateTime,
                 request.EndDateTime,
@@ -35,7 +44,7 @@ public class CreateScheduleBlockHandler(
         else
         {
             existingAppointments = await _appointmentRepository.GetByDateRangeAsync(
-                request.BusinessId,
+                businessId,
                 request.StartDateTime,
                 request.EndDateTime,
                 cancellationToken);
@@ -53,7 +62,7 @@ public class CreateScheduleBlockHandler(
         // 2. Crear entidad ScheduleBlock
         var scheduleBlock = new ScheduleBlock
         {
-            BusinessId = request.BusinessId,
+            BusinessId = businessId,
             EmployeeId = request.EmployeeId,
             StartDateTime = request.StartDateTime,
             EndDateTime = request.EndDateTime,

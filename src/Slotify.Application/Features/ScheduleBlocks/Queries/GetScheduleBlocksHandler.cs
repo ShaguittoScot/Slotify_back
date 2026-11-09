@@ -1,21 +1,30 @@
-﻿using MediatR;
+using MediatR;
+using Slotify.Application.Common.Interfaces;
 using Slotify.Application.Common.Models;
 using Slotify.Application.Features.ScheduleBlocks.DTOs;
 using Slotify.Domain.Interfaces;
 
 namespace Slotify.Application.Features.ScheduleBlocks.Queries;
 
-public class GetScheduleBlocksHandler(IScheduleBlockRepository scheduleBlockRepository)
+public class GetScheduleBlocksHandler(
+    IScheduleBlockRepository scheduleBlockRepository,
+    ICurrentUserService currentUserService)
     : IRequestHandler<GetScheduleBlocksQuery, Result<IReadOnlyList<ScheduleBlockDto>>>
 {
     private readonly IScheduleBlockRepository _scheduleBlockRepository = scheduleBlockRepository;
+    private readonly ICurrentUserService _currentUserService = currentUserService;
 
     public async Task<Result<IReadOnlyList<ScheduleBlockDto>>> Handle(
         GetScheduleBlocksQuery request,
         CancellationToken cancellationToken)
     {
+        if (_currentUserService.BusinessId is not { } businessId || businessId == Guid.Empty)
+        {
+            return Result<IReadOnlyList<ScheduleBlockDto>>.Fail("El usuario autenticado no tiene un negocio asignado.");
+        }
+
         var blocks = await _scheduleBlockRepository.GetByDateRangeAsync(
-            request.BusinessId,
+            businessId,
             request.StartDate,
             request.EndDate,
             cancellationToken);

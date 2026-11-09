@@ -4,16 +4,13 @@ namespace Slotify.Application.Features.ScheduleBlocks.Commands;
 
 /// <summary>
 /// Validaciones para la creación de bloqueos de agenda.
-/// Relacionado con: US-008
+/// Relacionado con: US-008, US-022.
 /// Mapea a: CONSTRAINT check_bloqueo_valido CHECK (fecha_hora_inicio &lt; fecha_hora_fin)
 /// </summary>
 public class CreateScheduleBlockValidator : AbstractValidator<CreateScheduleBlockCommand>
 {
     public CreateScheduleBlockValidator()
     {
-        RuleFor(x => x.BusinessId)
-            .NotEmpty().WithMessage("El ID del negocio es requerido.");
-
         RuleFor(x => x.StartDateTime)
             .NotEmpty().WithMessage("La fecha/hora de inicio es requerida.")
             .LessThan(x => x.EndDateTime)
