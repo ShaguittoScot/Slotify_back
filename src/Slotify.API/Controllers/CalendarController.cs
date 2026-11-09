@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Slotify.API.Common;
 using Slotify.Application.Features.Calendar.Commands;
 using Slotify.Application.Features.Calendar.Queries;
 
@@ -67,9 +68,6 @@ public class CalendarController(IMediator mediator) : ControllerBase
         CancellationToken cancellationToken)
     {
         var result = await _mediator.Send(command, cancellationToken);
-        if (!result.Success)
-            return BadRequest(result);
-
-        return Ok(new { success = true, id = result.Data, businessId = command.BusinessId, data = result.Data });
+        return result.ToActionResult(r => Ok(new { success = true, id = r.Data, businessId = command.BusinessId, data = r.Data }));
     }
 }

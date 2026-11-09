@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
+using Slotify.API.Common;
 using Slotify.Application;
 using Slotify.Infrastructure;
 using System.Text;
@@ -33,6 +34,8 @@ builder.Services.AddAuthorization();
 
 // API services
 builder.Services.AddControllers();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
 
 // CORS for React Native
@@ -70,6 +73,7 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+app.UseExceptionHandler();
 app.UseSerilogRequestLogging();
 app.UseCors("AllowAll");
 if (!app.Environment.IsDevelopment())

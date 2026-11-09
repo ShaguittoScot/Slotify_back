@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Slotify.API.Common;
 using Slotify.Application.Features.ScheduleBlocks.Commands;
 
 namespace Slotify.API.Controllers;
@@ -41,10 +42,7 @@ public class ScheduleBlocksController(IMediator mediator) : ControllerBase
         // TODO: Sobreescribir command.BusinessId con el valor del JWT
         var result = await _mediator.Send(command, cancellationToken);
 
-        if (!result.Success)
-            return BadRequest(result);
-
-        return CreatedAtAction(nameof(Create), new { id = result.Data }, result);
+        return result.ToActionResult(r => CreatedAtAction(nameof(Create), new { id = r.Data }, r));
     }
 
     /// <summary>
@@ -98,9 +96,6 @@ public class ScheduleBlocksController(IMediator mediator) : ControllerBase
 
         var result = await _mediator.Send(command, cancellationToken);
 
-        if (!result.Success)
-            return NotFound(result);
-
-        return Ok(result);
+        return result.ToActionResult();
     }
 }

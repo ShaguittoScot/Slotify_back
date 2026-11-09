@@ -21,13 +21,13 @@ public class DeleteScheduleBlockHandler(IScheduleBlockRepository scheduleBlockRe
         var block = await _scheduleBlockRepository.GetByIdAsync(request.BlockId, cancellationToken);
         if (block == null)
         {
-            return Result.Fail("Bloqueo no encontrado.");
+            return Result.NotFound("Bloqueo no encontrado.");
         }
 
         // 2. Verificar pertenencia al negocio si se especifica BusinessId
         if (request.BusinessId != Guid.Empty && block.BusinessId != request.BusinessId)
         {
-            return Result.Fail("No tiene autorización para eliminar este bloqueo.");
+            return Result.Fail("No tiene autorización para eliminar este bloqueo.", ErrorType.Forbidden);
         }
 
         // 3. Eliminar
