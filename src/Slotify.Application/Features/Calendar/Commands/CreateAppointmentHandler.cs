@@ -1,4 +1,5 @@
 using MediatR;
+using Slotify.Application.Common.Interfaces;
 using Slotify.Application.Common.Models;
 using Slotify.Domain.Entities;
 using Slotify.Domain.Enums;
@@ -9,52 +10,33 @@ namespace Slotify.Application.Features.Calendar.Commands;
 /// <summary>
 /// Handler para orquestar la creación y persistencia de una nueva cita en el calendario.
 /// Cumple con Single Responsibility (SRP) e Inversión de Dependencias (DIP), inyectando solo abstracciones.
+/// Relacionado con: US-022 (BusinessId resuelto desde ICurrentUserService).
 /// </summary>
 public class CreateAppointmentHandler(
     IAppointmentRepository appointmentRepository,
     IBusinessRepository businessRepository,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    ICurrentUserService currentUserService)
     : IRequestHandler<CreateAppointmentCommand, Result<Guid>>
 {
     private readonly IAppointmentRepository _appointmentRepository = appointmentRepository;
     private readonly IBusinessRepository _businessRepository = businessRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
+    private readonly ICurrentUserService _currentUserService = currentUserService;
 
     public async Task<Result<Guid>> Handle(
         CreateAppointmentCommand request,
         CancellationToken cancellationToken)
     {
-        var businessId = request.BusinessId;
-
-        // Resolución de negocio por defecto si viene vacío (ej. explorador sin selección explícita)
-        if (businessId == Guid.Empty)
+        if (_currentUserService.BusinessId is not { } businessId || businessId == Guid.Empty)
         {
-            var existingBusinesses = await _businessRepository.GetAllAsync(cancellationToken);
-            if (existingBusinesses.Count > 0)
-            {
-                businessId = existingBusinesses[0].Id;
-            }
-            else
-            {
-                var newBusiness = new Business
-                {
-                    Name = "Mi Negocio",
-                    Slug = "mi-negocio-" + Guid.NewGuid().ToString("N")[..6],
-                    Phone = "+52 55 1234 5678",
-                    SectorTemplateId = 2
-                };
-                await _businessRepository.AddAsync(newBusiness, cancellationToken);
-                await _unitOfWork.SaveChangesAsync(cancellationToken);
-                businessId = newBusiness.Id;
-            }
+            return Result<Guid>.Fail("El usuario autenticado no tiene un negocio asignado.");
         }
-        else
+
+        var business = await _businessRepository.GetByIdAsync(businessId, cancellationToken);
+        if (business == null)
         {
-            var business = await _businessRepository.GetByIdAsync(businessId, cancellationToken);
-            if (business == null)
-            {
-                return Result<Guid>.Fail("El negocio especificado no existe.");
-            }
+            return Result<Guid>.Fail("El negocio especificado no existe.");
         }
 
         var appointment = new Appointment

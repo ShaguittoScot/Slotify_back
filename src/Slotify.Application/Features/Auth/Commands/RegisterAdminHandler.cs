@@ -11,11 +11,13 @@ namespace Slotify.Application.Features.Auth.Commands;
 public class RegisterAdminHandler(
     IUserRepository userRepository,
     IBusinessRepository businessRepository,
-    IUnitOfWork unitOfWork) : IRequestHandler<RegisterAdminCommand, Result<AuthUserDto>>
+    IUnitOfWork unitOfWork,
+    IJwtService jwtService) : IRequestHandler<RegisterAdminCommand, Result<AuthUserDto>>
 {
     private readonly IUserRepository _userRepository = userRepository;
     private readonly IBusinessRepository _businessRepository = businessRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
+    private readonly IJwtService _jwtService = jwtService;
 
     public async Task<Result<AuthUserDto>> Handle(
         RegisterAdminCommand request,
@@ -55,6 +57,7 @@ public class RegisterAdminHandler(
             LastName = lastName,
             Email = request.Email,
             Role = UserRole.Owner,
+            BusinessId = business.Id,
             Business = business
         };
 
@@ -65,6 +68,9 @@ public class RegisterAdminHandler(
         // Los repositorios ya no llaman a SaveChanges internamente.
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
+        var accessToken = _jwtService.GenerateAccessToken(user);
+        var refreshToken = _jwtService.GenerateRefreshToken();
+
         return Result<AuthUserDto>.Ok(new AuthUserDto
         {
             Id = user.Id,
@@ -73,7 +79,9 @@ public class RegisterAdminHandler(
             FullName = user.FullName,
             Email = user.Email,
             Role = user.Role.ToString(),
-            BusinessId = business.Id
+            BusinessId = business.Id,
+            AccessToken = accessToken,
+            RefreshToken = refreshToken
         });
     }
 }

@@ -9,17 +9,17 @@ namespace Slotify.API.Controllers;
 
 /// <summary>
 /// Controller para la vista de calendario del negocio.
-/// Relacionado con: US-003 (Navegación Multiformato en Calendario Táctil)
+/// Relacionado con: US-003 (Navegación Multiformato en Calendario Táctil) y US-022 (Negocio del token).
 /// 
 /// Endpoints:
 /// - GET /api/calendar/slots?startDate=...&endDate=... → Obtener slots del calendario
+/// - POST /api/calendar/appointments → Crear cita en el negocio autenticado
 /// 
-/// NOTA: Requiere autenticación JWT. El BusinessId se extrae del token.
-/// TODO: Agregar atributo [Authorize] cuando se implemente el middleware JWT.
+/// Requiere autenticación JWT. El BusinessId se extrae exclusivamente del token mediante ICurrentUserService.
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
-// [Authorize] // TODO: Descomentar cuando se configure el middleware de autenticación JWT
+[Authorize]
 public class CalendarController(IMediator mediator) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
@@ -35,34 +35,35 @@ public class CalendarController(IMediator mediator) : ControllerBase
     [HttpGet("slots")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetSlots(
         [FromQuery] DateTime startDate,
         [FromQuery] DateTime endDate,
-        [FromQuery] Guid? businessId,
         [FromQuery] Guid? employeeId,
         CancellationToken cancellationToken)
     {
-        var effectiveBusinessId = businessId ?? Guid.Empty;
-
         var query = new GetCalendarSlotsQuery
         {
-            BusinessId = effectiveBusinessId,
             StartDate = startDate,
             EndDate = endDate,
             EmployeeId = employeeId
         };
 
         var result = await _mediator.Send(query, cancellationToken);
+        if (!result.Success)
+            return StatusCode(StatusCodes.Status403Forbidden, result);
+
         return Ok(result);
     }
 
     /// <summary>
-    /// Crea una nueva cita en el calendario.
+    /// Crea una nueva cita en el calendario del negocio autenticado.
     /// Despachada a través de MediatR hacia Slotify.Application cumpliendo CQRS.
     /// </summary>
     [HttpPost("appointments")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> CreateAppointment(
         [FromBody] CreateAppointmentCommand command,
         CancellationToken cancellationToken)

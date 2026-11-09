@@ -1,4 +1,5 @@
 using MediatR;
+using Slotify.Application.Common.Interfaces;
 using Slotify.Application.Common.Models;
 using Slotify.Application.Features.Calendar.DTOs;
 using Slotify.Domain.Entities;
@@ -8,25 +9,33 @@ namespace Slotify.Application.Features.Calendar.Queries;
 
 /// <summary>
 /// Handler para obtener los slots del calendario.
-/// Relacionado con: US-003 (Navegación Multiformato en Calendario Táctil)
+/// Relacionado con: US-003 (Navegación Multiformato en Calendario Táctil), US-022 (Negocio del token).
 /// </summary>
 public class GetCalendarSlotsHandler(
     IAppointmentRepository appointmentRepository,
-    IScheduleBlockRepository scheduleBlockRepository)
+    IScheduleBlockRepository scheduleBlockRepository,
+    ICurrentUserService currentUserService)
     : IRequestHandler<GetCalendarSlotsQuery, Result<CalendarResponse>>
 {
     private readonly IAppointmentRepository _appointmentRepository = appointmentRepository;
     private readonly IScheduleBlockRepository _scheduleBlockRepository = scheduleBlockRepository;
+    private readonly ICurrentUserService _currentUserService = currentUserService;
 
     public async Task<Result<CalendarResponse>> Handle(
         GetCalendarSlotsQuery request,
         CancellationToken cancellationToken)
     {
+        if (_currentUserService.BusinessId is not { } businessId || businessId == Guid.Empty)
+        {
+            return Result<CalendarResponse>.Fail("El usuario autenticado no tiene un negocio asignado.");
+        }
+
         // 1. Obtener citas del negocio en el rango solicitado
         IReadOnlyList<Appointment> appointments;
         if (request.EmployeeId.HasValue)
         {
             appointments = await _appointmentRepository.GetByEmployeeAndDateRangeAsync(
+                businessId,
                 request.EmployeeId.Value,
                 request.StartDate,
                 request.EndDate,
@@ -35,7 +44,7 @@ public class GetCalendarSlotsHandler(
         else
         {
             appointments = await _appointmentRepository.GetByDateRangeAsync(
-                request.BusinessId,
+                businessId,
                 request.StartDate,
                 request.EndDate,
                 cancellationToken);
@@ -43,7 +52,7 @@ public class GetCalendarSlotsHandler(
 
         // 2. Obtener bloqueos de agenda en el rango solicitado
         var blocks = await _scheduleBlockRepository.GetByDateRangeAsync(
-            request.BusinessId,
+            businessId,
             request.StartDate,
             request.EndDate,
             cancellationToken);

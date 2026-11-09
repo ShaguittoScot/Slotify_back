@@ -3,34 +3,31 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Slotify.API.Common;
 using Slotify.Application.Features.ScheduleBlocks.Commands;
+using Slotify.Application.Features.ScheduleBlocks.Queries;
 
 namespace Slotify.API.Controllers;
 
 /// <summary>
 /// Controller para bloqueos manuales de agenda.
-/// Relacionado con: US-008 (Bloqueo Manual de Horarios No Disponibles)
+/// Relacionado con: US-008 (Bloqueo Manual de Horarios No Disponibles) y US-022 (Negocio del token).
 /// 
 /// Endpoints:
-/// - POST   /api/schedule-blocks     → Crear bloqueo
+/// - POST   /api/schedule-blocks      → Crear bloqueo
+/// - GET    /api/schedule-blocks      → Listar bloqueos en rango
 /// - DELETE /api/schedule-blocks/{id} → Eliminar bloqueo (desbloquear)
 /// 
-/// NOTA: Requiere autenticación JWT. El BusinessId se extrae del token.
-/// TODO: Agregar atributo [Authorize] cuando se implemente el middleware JWT.
+/// Requiere autenticación JWT. El BusinessId se extrae exclusivamente del token mediante ICurrentUserService.
 /// </summary>
 [ApiController]
 [Route("api/schedule-blocks")]
-// [Authorize] // TODO: Descomentar cuando se configure el middleware de autenticación JWT
+[Authorize]
 public class ScheduleBlocksController(IMediator mediator) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
 
     /// <summary>
-    /// Crea un nuevo bloqueo en la agenda.
+    /// Crea un nuevo bloqueo en la agenda del negocio autenticado.
     /// </summary>
-    /// <remarks>
-    /// Bloquea un rango de tiempo para que no se puedan agendar citas.
-    /// Puede aplicar a un empleado específico o a todo el negocio.
-    /// </remarks>
     [HttpPost]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -39,59 +36,53 @@ public class ScheduleBlocksController(IMediator mediator) : ControllerBase
         [FromBody] CreateScheduleBlockCommand command,
         CancellationToken cancellationToken)
     {
-        // TODO: Sobreescribir command.BusinessId con el valor del JWT
         var result = await _mediator.Send(command, cancellationToken);
 
         return result.ToActionResult(r => CreatedAtAction(nameof(Create), new { id = r.Data }, r));
     }
 
     /// <summary>
-    /// Obtiene la lista de bloqueos en un rango de fechas.
+    /// Obtiene la lista de bloqueos del negocio autenticado en un rango de fechas.
     /// </summary>
     [HttpGet]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Get(
-        [FromQuery] Guid? businessId,
         [FromQuery] DateTime startDate,
         [FromQuery] DateTime endDate,
         [FromQuery] Guid? employeeId,
         CancellationToken cancellationToken)
     {
-        // Si no se envía businessId, se toma del JWT o placeholder
-        var effectiveBusinessId = businessId ?? Guid.Empty;
-
-        var query = new Slotify.Application.Features.ScheduleBlocks.Queries.GetScheduleBlocksQuery
+        var query = new GetScheduleBlocksQuery
         {
-            BusinessId = effectiveBusinessId,
             StartDate = startDate,
             EndDate = endDate,
             EmployeeId = employeeId
         };
 
         var result = await _mediator.Send(query, cancellationToken);
+        if (!result.Success)
+            return StatusCode(StatusCodes.Status403Forbidden, result);
+
         return Ok(result);
     }
 
     /// <summary>
-    /// Elimina un bloqueo existente (desbloquea el horario).
+    /// Elimina un bloqueo existente validando que pertenezca al negocio del token.
     /// </summary>
     [HttpDelete("{id:long}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Delete(
         long id,
-        [FromQuery] Guid? businessId,
         CancellationToken cancellationToken)
     {
-        // TODO: Extraer BusinessId del claim del JWT
-        var effectiveBusinessId = businessId ?? Guid.Empty;
-
         var command = new DeleteScheduleBlockCommand
         {
-            BlockId = id,
-            BusinessId = effectiveBusinessId
+            BlockId = id
         };
 
         var result = await _mediator.Send(command, cancellationToken);
