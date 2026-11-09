@@ -28,6 +28,20 @@ public class BusinessesController(
     private readonly ICurrentUserService _currentUserService = currentUserService;
 
     /// <summary>
+    /// Obtiene la lista de negocios para el explorador y catálogo de clientes.
+    /// </summary>
+    [HttpGet]
+    [ProducesResponseType(typeof(IEnumerable<BusinessListItemDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(
+            new GetBusinessesQuery(),
+            cancellationToken);
+
+        return Ok(result);
+    }
+
+    /// <summary>
     /// Cambia la plantilla de sector (giro) de un negocio existente (US-013).
     /// Devuelve 403 si el {id} no pertenece al negocio del token autenticado (US-022).
     /// </summary>
@@ -41,46 +55,54 @@ public class BusinessesController(
         [FromBody] ChangeTemplateRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await _mediator.Send(
-            new ChangeBusinessTemplateCommand(id, request.NewTemplateId),
-            cancellationToken);
-
-        return result.ToActionResult(r => Ok(new { success = r.Data }));
+        try
+        {
+            var result = await _mediator.Send(
+                new ChangeBusinessTemplateCommand(id, request.NewTemplateId),
+                cancellationToken);
+            return Ok(new { success = result });
+        }
+        catch (Exception ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
     }
 
     /// <summary>
-    /// Obtiene la configuración pública del formulario de reservas junto con el logotipo
-    /// y los colores corporativos principales del negocio.
+    /// Obtiene la configuración de reserva de un negocio por su slug.
     /// </summary>
     [HttpGet("{slug}/booking-config")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetBookingConfig(
-        string slug,
-        CancellationToken cancellationToken)
+    public async Task<IActionResult> GetBookingConfig(string slug, CancellationToken cancellationToken)
     {
         var result = await _mediator.Send(
             new GetBusinessBookingConfigQuery(slug),
             cancellationToken);
 
+        if (!result.Success)
+            return NotFound(new { error = result.Errors.FirstOrDefault() });
+
         return result.ToActionResult(r => Ok(r.Data));
     }
 
     /// <summary>
-    /// Actualiza la configuración del formulario de reservas e identidad de marca (logotipo y colores corporativos).
+    /// Actualiza la configuración de formulario personalizada de un negocio.
     /// </summary>
     [HttpPut("{id}/booking-config")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateBookingConfig(
         Guid id,
         [FromBody] UpdateFormConfigRequest request,
         CancellationToken cancellationToken)
     {
-        var jsonString = JsonSerializer.Serialize(request.FormConfig, CamelCaseOptions);
+        var jsonString = System.Text.Json.JsonSerializer.Serialize(request.FormConfig);
         var command = new UpdateBusinessFormConfigCommand(id, jsonString);
-        var result = await _mediator.Send(command, cancellationToken);
+        var success = await _mediator.Send(command, cancellationToken);
+
+        if (!success)
+            return BadRequest(new { error = "No se pudo actualizar la configuración." });
 
         return result.ToActionResult(_ =>
             Ok(new { message = "Configuración e identidad de marca actualizadas exitosamente." }));
@@ -115,22 +137,4 @@ public class BusinessesController(
         && _currentUserService.BusinessId is { } tokenBusinessId
         && tokenBusinessId != Guid.Empty
         && tokenBusinessId == routeBusinessId;
-}
-
-public class UpdateFormConfigRequest
-{
-    public object FormConfig { get; set; } = new();
-}
-
-public class UpdateBusinessBrandingRequest
-{
-    public string? LogoUrl { get; set; }
-    public string AccentColor { get; set; } = "#6366F1";
-    public string? SecondaryColor { get; set; }
-    public string? BusinessName { get; set; }
-}
-
-public class ChangeTemplateRequest
-{
-    public int NewTemplateId { get; set; }
 }

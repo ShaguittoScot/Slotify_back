@@ -18,4 +18,9 @@ public interface IBusinessRepository : IRepository<Business>
     /// Utilizado al crear un negocio para garantizar unicidad.
     /// </summary>
     Task<bool> SlugExistsAsync(string slug, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Obtiene todos los negocios con sus entidades relacionadas (plantilla de sector, identidad visual de marca y catálogo de servicios).
+    /// </summary>
+    Task<IReadOnlyList<Business>> GetAllWithDetailsAsync(CancellationToken cancellationToken = default);
 }

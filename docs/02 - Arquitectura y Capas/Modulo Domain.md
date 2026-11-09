@@ -7,7 +7,7 @@ tags:
   - entities
 ---
 
-# 💎 Módulo Domain (`Slotify.Domain`)
+# Módulo Domain (`Slotify.Domain`)
 
 El proyecto **`Slotify.Domain`** es el **corazón del negocio** y la capa más interna de Clean Architecture. No tiene ninguna dependencia de paquetes de terceros ni de frameworks de persistencia.
 

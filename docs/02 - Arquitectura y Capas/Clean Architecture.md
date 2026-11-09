@@ -21,7 +21,7 @@ graph TD
 
 ---
 
-## 📦 Descripción de Capas
+## Descripción de Capas
 
 ### 1. `Slotify.Domain`
 * El núcleo del sistema, **sin dependencias externas**.
