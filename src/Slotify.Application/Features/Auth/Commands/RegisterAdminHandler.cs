@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Slotify.Application.Common.Interfaces;
 using Slotify.Application.Common.Models;
 using Slotify.Application.Features.Auth.DTOs;
@@ -26,7 +26,9 @@ public class RegisterAdminHandler(
         if (await _userRepository.EmailExistsAsync(request.Email, cancellationToken))
             return Result<AuthUserDto>.Fail("El correo electrónico ya está registrado.");
 
-        var businessSlug = request.BusinessName.ToLowerInvariant().Replace(" ", "-");
+        // Fix #2 (SRP): La lógica de generación del slug pertenece al dominio Business,
+        // no al handler. Cualquier cambio en la regla del slug solo requiere editar Business.cs.
+        var businessSlug = Business.GenerateSlug(request.BusinessName);
         if (await _businessRepository.SlugExistsAsync(businessSlug, cancellationToken))
             return Result<AuthUserDto>.Fail("El nombre del negocio ya está en uso.");
 
@@ -44,8 +46,8 @@ public class RegisterAdminHandler(
 
         var lastName = !string.IsNullOrWhiteSpace(request.LastName)
             ? request.LastName.Trim()
-            : (!string.IsNullOrWhiteSpace(request.FullName) && request.FullName.Trim().Contains(' ') 
-                ? request.FullName.Trim().Split(' ', 2)[1] 
+            : (!string.IsNullOrWhiteSpace(request.FullName) && request.FullName.Trim().Contains(' ')
+                ? request.FullName.Trim().Split(' ', 2)[1]
                 : string.Empty);
 
         var user = new User
@@ -62,6 +64,8 @@ public class RegisterAdminHandler(
         await _businessRepository.AddAsync(business, cancellationToken);
         await _userRepository.AddAsync(user, cancellationToken);
 
+        // Fix #1 (SRP/OCP): Solo el IUnitOfWork hace el commit.
+        // Los repositorios ya no llaman a SaveChanges internamente.
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         var accessToken = _jwtService.GenerateAccessToken(user);

@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Slotify.API.Common;
 using Slotify.Application.Features.Auth.Commands;
 
 namespace Slotify.API.Controllers;
@@ -47,10 +48,7 @@ public class AuthController(IMediator mediator) : ControllerBase
     {
         var result = await _mediator.Send(command, cancellationToken);
 
-        if (!result.Success)
-            return BadRequest(result);
-
-        return Ok(result);
+        return result.ToActionResult();
     }
 
     /// <summary>
@@ -65,9 +63,6 @@ public class AuthController(IMediator mediator) : ControllerBase
     {
         var result = await _mediator.Send(command, cancellationToken);
 
-        if (!result.Success)
-            return BadRequest(result);
-
-        return Ok(result);
+        return result.ToActionResult();
     }
 }

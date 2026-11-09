@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Slotify.API.Common;
 using Slotify.Application.Features.ScheduleBlocks.Commands;
 using Slotify.Application.Features.ScheduleBlocks.Queries;
 
@@ -37,10 +38,7 @@ public class ScheduleBlocksController(IMediator mediator) : ControllerBase
     {
         var result = await _mediator.Send(command, cancellationToken);
 
-        if (!result.Success)
-            return BadRequest(result);
-
-        return CreatedAtAction(nameof(Create), new { id = result.Data }, result);
+        return result.ToActionResult(r => CreatedAtAction(nameof(Create), new { id = r.Data }, r));
     }
 
     /// <summary>
@@ -89,18 +87,6 @@ public class ScheduleBlocksController(IMediator mediator) : ControllerBase
 
         var result = await _mediator.Send(command, cancellationToken);
 
-        if (!result.Success)
-        {
-            if (result.Errors.Contains(DeleteScheduleBlockHandler.ForbiddenError))
-            {
-                return StatusCode(
-                    StatusCodes.Status403Forbidden,
-                    new { error = "No tienes permisos para eliminar un bloqueo de otro negocio." });
-            }
-
-            return NotFound(result);
-        }
-
-        return Ok(result);
+        return result.ToActionResult();
     }
 }

@@ -1,6 +1,6 @@
 # Slotify - Backend API 🚀
 
-API RESTful desarrollada en **.NET 8** con arquitectura limpia (Clean Architecture / Onion Architecture) y CQRS con MediatR para la plataforma **Slotify**.
+API RESTful desarrollada en **.NET 9** con arquitectura limpia (Clean Architecture / Onion Architecture) y CQRS con MediatR para la plataforma **Slotify**.
 
 ---
 
@@ -20,7 +20,7 @@ src/
 
 ## 🛠️ Tecnologías Utilizadas
 
-- **.NET 8 Web API**
+- **.NET 9 Web API**
 - **Entity Framework Core 8** (PostgreSQL / Supabase)
 - **MediatR** (Patrón CQRS)
 - **FluentValidation** (Validación de comandos y DTOs)
@@ -32,7 +32,7 @@ src/
 
 ## 🚀 Requisitos Previos
 
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
+- [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
 - PostgreSQL o instancia de Supabase
 - Editor recomendado: Visual Studio 2022, Visual Studio Code o JetBrains Rider
 

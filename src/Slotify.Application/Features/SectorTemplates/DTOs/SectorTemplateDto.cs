@@ -22,12 +22,27 @@ public record SectorTemplateDto
     public required BookingFormConfigDto FormConfig { get; init; }
 }
 
+/// <summary>
+/// DTO de configuración del formulario público de reservas e identidad de marca corporativa.
+/// </summary>
 public record BookingFormConfigDto
 {
-    public string Title { get; init; } = string.Empty;
+    public string Title { get; init; } = "Nueva Reservación";
     public string Description { get; init; } = string.Empty;
     public string PresentationStyle { get; init; } = "classic_scroll";
+
+    /// <summary>Color corporativo primario (#RRGGBB).</summary>
     public string AccentColor { get; init; } = "#6366F1";
+
+    /// <summary>Color corporativo secundario (#RRGGBB).</summary>
+    public string SecondaryColor { get; init; } = "#8B5CF6";
+
+    /// <summary>URL o Data URI del logotipo del establecimiento.</summary>
+    public string? LogoUrl { get; init; }
+
+    /// <summary>Nombre comercial del establecimiento mostrado en la interfaz pública.</summary>
+    public string? BusinessName { get; init; }
+
     public List<FormFieldDto> Fields { get; init; } = [];
 }
 
