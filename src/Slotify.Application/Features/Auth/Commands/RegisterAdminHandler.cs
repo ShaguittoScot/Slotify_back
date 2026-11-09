@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Slotify.Application.Common.Interfaces;
 using Slotify.Application.Common.Models;
 using Slotify.Application.Features.Auth.DTOs;
@@ -11,11 +11,13 @@ namespace Slotify.Application.Features.Auth.Commands;
 public class RegisterAdminHandler(
     IUserRepository userRepository,
     IBusinessRepository businessRepository,
-    IUnitOfWork unitOfWork) : IRequestHandler<RegisterAdminCommand, Result<AuthUserDto>>
+    IUnitOfWork unitOfWork,
+    IJwtService jwtService) : IRequestHandler<RegisterAdminCommand, Result<AuthUserDto>>
 {
     private readonly IUserRepository _userRepository = userRepository;
     private readonly IBusinessRepository _businessRepository = businessRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
+    private readonly IJwtService _jwtService = jwtService;
 
     public async Task<Result<AuthUserDto>> Handle(
         RegisterAdminCommand request,
@@ -24,7 +26,9 @@ public class RegisterAdminHandler(
         if (await _userRepository.EmailExistsAsync(request.Email, cancellationToken))
             return Result<AuthUserDto>.Fail("El correo electrónico ya está registrado.");
 
-        var businessSlug = request.BusinessName.ToLowerInvariant().Replace(" ", "-");
+        // Fix #2 (SRP): La lógica de generación del slug pertenece al dominio Business,
+        // no al handler. Cualquier cambio en la regla del slug solo requiere editar Business.cs.
+        var businessSlug = Business.GenerateSlug(request.BusinessName);
         if (await _businessRepository.SlugExistsAsync(businessSlug, cancellationToken))
             return Result<AuthUserDto>.Fail("El nombre del negocio ya está en uso.");
 
@@ -42,8 +46,8 @@ public class RegisterAdminHandler(
 
         var lastName = !string.IsNullOrWhiteSpace(request.LastName)
             ? request.LastName.Trim()
-            : (!string.IsNullOrWhiteSpace(request.FullName) && request.FullName.Trim().Contains(' ') 
-                ? request.FullName.Trim().Split(' ', 2)[1] 
+            : (!string.IsNullOrWhiteSpace(request.FullName) && request.FullName.Trim().Contains(' ')
+                ? request.FullName.Trim().Split(' ', 2)[1]
                 : string.Empty);
 
         var user = new User
@@ -53,13 +57,19 @@ public class RegisterAdminHandler(
             LastName = lastName,
             Email = request.Email,
             Role = UserRole.Owner,
+            BusinessId = business.Id,
             Business = business
         };
 
         await _businessRepository.AddAsync(business, cancellationToken);
         await _userRepository.AddAsync(user, cancellationToken);
 
+        // Fix #1 (SRP/OCP): Solo el IUnitOfWork hace el commit.
+        // Los repositorios ya no llaman a SaveChanges internamente.
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        var accessToken = _jwtService.GenerateAccessToken(user);
+        var refreshToken = _jwtService.GenerateRefreshToken();
 
         return Result<AuthUserDto>.Ok(new AuthUserDto
         {
@@ -69,8 +79,9 @@ public class RegisterAdminHandler(
             FullName = user.FullName,
             Email = user.Email,
             Role = user.Role.ToString(),
-            BusinessId = business.Id
+            BusinessId = business.Id,
+            AccessToken = accessToken,
+            RefreshToken = refreshToken
         });
     }
 }
-

@@ -5,11 +5,11 @@ namespace Slotify.Application.Features.Calendar.Commands;
 
 /// <summary>
 /// Comando para agendar una nueva cita en el calendario.
-/// Relacionado con: US-003 / US-011 (Agendamiento de Citas).
+/// Relacionado con: US-003 / US-011 (Agendamiento de Citas), US-022 (Negocio del token).
+/// El BusinessId se obtiene exclusivamente de ICurrentUserService.
 /// </summary>
 public record CreateAppointmentCommand : IRequest<Result<Guid>>
 {
-    public Guid BusinessId { get; init; } = Guid.Empty;
     public Guid? EmployeeId { get; init; }
     public required DateTime StartTime { get; init; }
     public required DateTime EndTime { get; init; }

@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
+using Slotify.API.Common;
 using Slotify.Application;
+using Slotify.Application.Common.Interfaces;
 using Slotify.Infrastructure;
 using System.Text;
 // Load .env file from solution/project root if present
@@ -16,12 +18,19 @@ builder.Host.UseSerilog((context, loggerConfig) =>
 // Clean Architecture layer services
 builder.Services.AddApplicationServices();
 builder.Services.AddInfrastructureServices(builder.Configuration);
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
 // Auth Setup
-var jwtSecret = builder.Configuration["Jwt:Secret"] ?? throw new InvalidOperationException("Jwt:Secret not configured");
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+    .AddJwtBearer();
+
+builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+    .Configure<IConfiguration>((options, configuration) =>
     {
+        var jwtSecret = configuration["Jwt:Secret"]
+            ?? throw new InvalidOperationException("Jwt:Secret not configured");
+
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuerSigningKey = true,
@@ -31,10 +40,13 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ClockSkew = TimeSpan.Zero
         };
     });
+
 builder.Services.AddAuthorization();
 
 // API services
 builder.Services.AddControllers();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
 
 // CORS for React Native
@@ -72,6 +84,7 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+app.UseExceptionHandler();
 app.UseSerilogRequestLogging();
 app.UseCors("AllowAll");
 if (!app.Environment.IsDevelopment())
@@ -86,3 +99,5 @@ app.MapControllers();
 app.MapGet("/health", () => Results.Ok(new { Status = "Healthy", Timestamp = DateTime.UtcNow }));
 
 app.Run();
+
+public partial class Program { }
