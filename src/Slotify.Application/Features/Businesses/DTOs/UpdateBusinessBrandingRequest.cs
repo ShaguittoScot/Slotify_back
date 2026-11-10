@@ -10,3 +10,4 @@ public record UpdateBusinessBrandingRequest
     public string? SecondaryColor { get; init; }
     public string? BusinessName { get; init; }
 }
+
