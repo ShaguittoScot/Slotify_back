@@ -39,6 +39,10 @@ public partial class Business : AuditableEntity
     public string? CustomFormConfig { get; set; }
 
     // ── Navegación ────────────────────────────────────────────────────────────
+    /// <summary>Indica si el negocio ha completado el proceso de onboarding (onboarding_completado).</summary>
+    public DateTime? OnboardingCompletedAt { get; set; }
+
+    // ── Navegación ──────────────────────────────────────────
     /// <summary>Plantilla de sector (giro comercial) asociada.</summary>
     public SectorTemplate? SectorTemplate { get; set; }
 

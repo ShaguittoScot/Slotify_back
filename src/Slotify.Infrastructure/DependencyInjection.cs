@@ -32,6 +32,7 @@ public static class DependencyInjection
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         // Repositories
+        services.AddScoped<IBusinessOnboardingPersistence,BusinessOnboardingPersistence>();
         services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IBusinessRepository, BusinessRepository>();

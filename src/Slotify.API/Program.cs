@@ -70,7 +70,16 @@ using (var scope = app.Services.CreateScope())
     {
         await Microsoft.EntityFrameworkCore.RelationalDatabaseFacadeExtensions.ExecuteSqlRawAsync(
             db.Database,
-            "ALTER TABLE negocios ADD COLUMN IF NOT EXISTS configuracion_formulario_personalizada JSONB;");
+            "ALTER TABLE negocios ADD COLUMN IF NOT EXISTS configuracion_formulario_personalizada JSONB;"
+        );
+
+        await Microsoft.EntityFrameworkCore.RelationalDatabaseFacadeExtensions.ExecuteSqlRawAsync(
+            db.Database,
+            """
+            ALTER TABLE negocios
+            ADD COLUMN IF NOT EXISTS onboarding_completed_at TIMESTAMPTZ NULL;
+            """
+        );
     }
     catch (Exception ex)
     {
@@ -79,6 +88,8 @@ using (var scope = app.Services.CreateScope())
 }
 
 // Configure the HTTP request pipeline
+app.UseMiddleware<GlobalExceptionMiddleware>();
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
