@@ -27,7 +27,7 @@ public class GetCalendarSlotsHandler(
     {
         if (_currentUserService.BusinessId is not { } businessId || businessId == Guid.Empty)
         {
-            return Result<CalendarResponse>.Fail("El usuario autenticado no tiene un negocio asignado.");
+            return Result<CalendarResponse>.Fail("El usuario autenticado no tiene un negocio asignado.", ErrorType.Forbidden);
         }
 
         // 1. Obtener citas del negocio en el rango solicitado

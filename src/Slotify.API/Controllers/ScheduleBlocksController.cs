@@ -62,10 +62,7 @@ public class ScheduleBlocksController(IMediator mediator) : ControllerBase
         };
 
         var result = await _mediator.Send(query, cancellationToken);
-        if (!result.Success)
-            return StatusCode(StatusCodes.Status403Forbidden, result);
-
-        return Ok(result);
+        return result.ToActionResult();
     }
 
     /// <summary>

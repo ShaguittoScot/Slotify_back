@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
 using Slotify.API.Common;
+using Slotify.API.Services;
 using Slotify.Application;
 using Slotify.Application.Common.Interfaces;
 using Slotify.Infrastructure;

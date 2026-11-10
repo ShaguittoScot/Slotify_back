@@ -284,6 +284,50 @@ public class ProtectedEndpointsTests
     }
 
     [Fact]
+    public async Task GetBusinesses_SinToken_EsPublicoYRetorna200Ok()
+    {
+        // ARRANGE
+        var bizRepoMock = new Mock<IBusinessRepository>();
+        bizRepoMock
+            .Setup(b => b.GetAllWithDetailsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new Business { Id = Guid.NewGuid(), Name = "Barbería Pública", Slug = "barberia-publica" }]);
+
+        using var factory = CreateTestFactory(bizRepoMock: bizRepoMock);
+        using var client = factory.CreateClient();
+
+        // ACT (sin header Authorization)
+        var response = await client.GetAsync("/api/businesses");
+
+        // ASSERT
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task PutBranding_ConTokenDeOtroNegocio_Retorna403Forbidden()
+    {
+        // ARRANGE
+        var negocioA = Guid.NewGuid();
+        var negocioB = Guid.NewGuid();
+        var bizRepoMock = new Mock<IBusinessRepository>();
+
+        using var factory = CreateTestFactory(bizRepoMock: bizRepoMock);
+        using var client = factory.CreateClient();
+        var tokenNegocioA = GenerateToken(Guid.NewGuid(), negocioA);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenNegocioA);
+
+        // ACT
+        var response = await client.PutAsJsonAsync($"/api/businesses/{negocioB}/branding", new
+        {
+            logoUrl = "https://cdn.slotify.app/logo.png",
+            accentColor = "#6366F1"
+        });
+
+        // ASSERT
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        bizRepoMock.Verify(b => b.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task GetCalendarSlots_ConTokenValido_FiltraUnicamentePorElNegocioDelToken()
     {
         // ARRANGE

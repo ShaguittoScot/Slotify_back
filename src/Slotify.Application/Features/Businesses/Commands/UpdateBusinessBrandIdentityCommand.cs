@@ -1,5 +1,6 @@
 using FluentValidation;
 using MediatR;
+using Slotify.Application.Common.Interfaces;
 using Slotify.Application.Common.Models;
 using Slotify.Application.Features.SectorTemplates.DTOs;
 using Slotify.Domain.Entities;
@@ -46,7 +47,8 @@ public class UpdateBusinessBrandIdentityValidator : AbstractValidator<UpdateBusi
 
 public class UpdateBusinessBrandIdentityCommandHandler(
     IBusinessRepository businessRepository,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    ICurrentUserService? currentUserService = null)
     : IRequestHandler<UpdateBusinessBrandIdentityCommand, Result<BookingFormConfigDto>>
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -57,11 +59,15 @@ public class UpdateBusinessBrandIdentityCommandHandler(
 
     private readonly IBusinessRepository _businessRepository = businessRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
+    private readonly ICurrentUserService? _currentUserService = currentUserService;
 
     public async Task<Result<BookingFormConfigDto>> Handle(
         UpdateBusinessBrandIdentityCommand request,
         CancellationToken cancellationToken)
     {
+        if (_currentUserService is not null && !BelongsToAuthenticatedBusiness(request.BusinessId))
+            return Result<BookingFormConfigDto>.Fail("No tienes permisos para modificar otro negocio.", ErrorType.Forbidden);
+
         if (!Business.IsValidCorporateHexColor(request.AccentColor))
             return Result<BookingFormConfigDto>.Fail("El color corporativo primario no es un código hexadecimal válido.");
 
@@ -112,6 +118,13 @@ public class UpdateBusinessBrandIdentityCommandHandler(
         };
 
         business.CustomFormConfig = JsonSerializer.Serialize(updatedConfig, JsonOptions);
+        if (business.Brand != null)
+        {
+            business.Brand.LogoUrl = updatedConfig.LogoUrl;
+            business.Brand.PrimaryColor = updatedConfig.AccentColor;
+            business.Brand.IsDefault = false;
+            business.Brand.UpdatedAt = DateTime.UtcNow;
+        }
         business.UpdatedAt = DateTime.UtcNow;
 
         await _businessRepository.UpdateAsync(business, cancellationToken);
@@ -119,5 +132,10 @@ public class UpdateBusinessBrandIdentityCommandHandler(
 
         return Result<BookingFormConfigDto>.Ok(updatedConfig, "Identidad de marca actualizada correctamente.");
     }
-}
 
+    private bool BelongsToAuthenticatedBusiness(Guid targetBusinessId) =>
+        targetBusinessId != Guid.Empty
+        && _currentUserService?.BusinessId is { } tokenBusinessId
+        && tokenBusinessId != Guid.Empty
+        && tokenBusinessId == targetBusinessId;
+}

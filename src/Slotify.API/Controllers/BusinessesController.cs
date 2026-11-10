@@ -1,23 +1,22 @@
-using System.Text.Json;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Slotify.API.Common;
 using Slotify.Application.Features.Businesses.Commands;
+using Slotify.Application.Features.Businesses.DTOs;
 using Slotify.Application.Features.Businesses.Queries;
 using System.Text.Json;
 
 namespace Slotify.API.Controllers;
 
 /// <summary>
-/// Controller para administrar la configuración e identidad corporativa de Negocios.
+/// Controller para administrar y consultar la configuración e identidad corporativa de Negocios.
+/// Cumple con Single Responsibility (SRP) e Inversión de Dependencias (DIP) delegando a Casos de Uso vía MediatR.
 /// </summary>
 [ApiController]
 [Route("api/businesses")]
 [Authorize]
-public class BusinessesController(
-    IMediator mediator,
-    ICurrentUserService currentUserService) : ControllerBase
+public class BusinessesController(IMediator mediator) : ControllerBase
 {
     private static readonly JsonSerializerOptions CamelCaseOptions = new()
     {
@@ -25,11 +24,11 @@ public class BusinessesController(
     };
 
     private readonly IMediator _mediator = mediator;
-    private readonly ICurrentUserService _currentUserService = currentUserService;
 
     /// <summary>
-    /// Obtiene la lista de negocios para el explorador y catálogo de clientes.
+    /// Obtiene la lista pública de negocios para el explorador y catálogo de clientes.
     /// </summary>
+    [AllowAnonymous]
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<BusinessListItemDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
@@ -55,54 +54,50 @@ public class BusinessesController(
         [FromBody] ChangeTemplateRequest request,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            var result = await _mediator.Send(
-                new ChangeBusinessTemplateCommand(id, request.NewTemplateId),
-                cancellationToken);
-            return Ok(new { success = result });
-        }
-        catch (Exception ex)
-        {
-            return NotFound(new { error = ex.Message });
-        }
+        var result = await _mediator.Send(
+            new ChangeBusinessTemplateCommand(id, request.NewTemplateId),
+            cancellationToken);
+
+        return result.ToActionResult(r => Ok(new { success = r.Data }));
     }
 
     /// <summary>
-    /// Obtiene la configuración de reserva de un negocio por su slug.
+    /// Obtiene la configuración pública del formulario de reservas junto con el logotipo
+    /// y los colores corporativos principales del negocio.
     /// </summary>
+    [AllowAnonymous]
     [HttpGet("{slug}/booking-config")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetBookingConfig(string slug, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetBookingConfig(
+        string slug,
+        CancellationToken cancellationToken)
     {
         var result = await _mediator.Send(
             new GetBusinessBookingConfigQuery(slug),
             cancellationToken);
 
-        if (!result.Success)
-            return NotFound(new { error = result.Errors.FirstOrDefault() });
-
         return result.ToActionResult(r => Ok(r.Data));
     }
 
     /// <summary>
-    /// Actualiza la configuración de formulario personalizada de un negocio.
+    /// Actualiza la configuración del formulario de reservas e identidad de marca (logotipo y colores corporativos).
+    /// Devuelve 403 si el {id} no pertenece al negocio del token autenticado (US-022).
     /// </summary>
     [HttpPut("{id}/booking-config")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateBookingConfig(
         Guid id,
         [FromBody] UpdateFormConfigRequest request,
         CancellationToken cancellationToken)
     {
-        var jsonString = System.Text.Json.JsonSerializer.Serialize(request.FormConfig);
+        var jsonString = JsonSerializer.Serialize(request.FormConfig, CamelCaseOptions);
         var command = new UpdateBusinessFormConfigCommand(id, jsonString);
-        var success = await _mediator.Send(command, cancellationToken);
-
-        if (!success)
-            return BadRequest(new { error = "No se pudo actualizar la configuración." });
+        var result = await _mediator.Send(command, cancellationToken);
 
         return result.ToActionResult(_ =>
             Ok(new { message = "Configuración e identidad de marca actualizadas exitosamente." }));
@@ -110,11 +105,14 @@ public class BusinessesController(
 
     /// <summary>
     /// Carga el logotipo y define los colores corporativos principales del negocio sobre su formulario de reservas.
+    /// Devuelve 403 si el {id} no pertenece al negocio del token autenticado (US-022).
     /// </summary>
     [HttpPut("{id}/branding")]
     [HttpPatch("{id}/branding")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateBranding(
         Guid id,
@@ -131,10 +129,4 @@ public class BusinessesController(
         var result = await _mediator.Send(command, cancellationToken);
         return result.ToActionResult();
     }
-
-    private bool BelongsToAuthenticatedBusiness(Guid routeBusinessId) =>
-        routeBusinessId != Guid.Empty
-        && _currentUserService.BusinessId is { } tokenBusinessId
-        && tokenBusinessId != Guid.Empty
-        && tokenBusinessId == routeBusinessId;
 }

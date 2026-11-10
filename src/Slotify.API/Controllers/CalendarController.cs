@@ -12,7 +12,7 @@ namespace Slotify.API.Controllers;
 /// Relacionado con: US-003 (Navegación Multiformato en Calendario Táctil) y US-022 (Negocio del token).
 /// 
 /// Endpoints:
-/// - GET /api/calendar/slots?startDate=...&endDate=... → Obtener slots del calendario
+/// - GET /api/calendar/slots?startDate=...&amp;endDate=... → Obtener slots del calendario
 /// - POST /api/calendar/appointments → Crear cita en el negocio autenticado
 /// 
 /// Requiere autenticación JWT. El BusinessId se extrae exclusivamente del token mediante ICurrentUserService.
@@ -50,10 +50,7 @@ public class CalendarController(IMediator mediator) : ControllerBase
         };
 
         var result = await _mediator.Send(query, cancellationToken);
-        if (!result.Success)
-            return StatusCode(StatusCodes.Status403Forbidden, result);
-
-        return Ok(result);
+        return result.ToActionResult();
     }
 
     /// <summary>
@@ -69,6 +66,6 @@ public class CalendarController(IMediator mediator) : ControllerBase
         CancellationToken cancellationToken)
     {
         var result = await _mediator.Send(command, cancellationToken);
-        return result.ToActionResult(r => Ok(new { success = true, id = r.Data, businessId = command.BusinessId, data = r.Data }));
+        return result.ToActionResult(r => Ok(new { success = true, id = r.Data, data = r.Data }));
     }
 }
