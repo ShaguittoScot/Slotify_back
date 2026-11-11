@@ -25,6 +25,10 @@ public class BusinessesController(IMediator mediator) : ControllerBase
 
     private readonly IMediator _mediator = mediator;
 
+    [HttpGet("me/settings")]
+    public async Task<IActionResult> GetOwnSettings(CancellationToken token) =>
+        (await _mediator.Send(new GetOwnBusinessInfoQuery(), token)).ToActionResult();
+
     /// <summary>
     /// Obtiene la lista pública de negocios para el explorador y catálogo de clientes.
     /// </summary>

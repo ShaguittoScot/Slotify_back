@@ -21,6 +21,9 @@ public class AppointmentConfiguration : IEntityTypeConfiguration<Appointment>
             .HasColumnName("id_negocio")
             .IsRequired();
 
+        builder.Property(x => x.ClientId)
+            .HasColumnName("id_cliente");
+
         builder.Property(x => x.EmployeeId)
             .HasColumnName("id_empleado");
 

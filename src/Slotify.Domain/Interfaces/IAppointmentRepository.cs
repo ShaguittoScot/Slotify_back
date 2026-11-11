@@ -27,4 +27,12 @@ public interface IAppointmentRepository : IRepository<Appointment>
         DateTime startDate,
         DateTime endDate,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Obtiene el historial completo de citas de un negocio ordenadas de la más reciente a la más antigua.
+    /// Usado en US-026 (Construcción de módulo de clientes) con aislamiento estricto por BusinessId.
+    /// </summary>
+    Task<IReadOnlyList<Appointment>> GetByBusinessIdAsync(
+        Guid businessId,
+        CancellationToken cancellationToken = default);
 }

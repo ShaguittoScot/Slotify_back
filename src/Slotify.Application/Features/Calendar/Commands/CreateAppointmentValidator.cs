@@ -1,4 +1,5 @@
 using FluentValidation;
+using Slotify.Domain.Entities;
 
 namespace Slotify.Application.Features.Calendar.Commands;
 
@@ -16,25 +17,31 @@ public class CreateAppointmentValidator : AbstractValidator<CreateAppointmentCom
 
         RuleFor(x => x.StartTime)
             .NotEmpty().WithMessage("La fecha y hora de inicio es requerida.")
+            .Must(value => value.Kind == DateTimeKind.Utc).WithMessage("La hora de inicio debe enviarse en UTC.")
             .LessThan(x => x.EndTime).WithMessage("La hora de inicio debe ser anterior a la hora de fin.");
 
         RuleFor(x => x.EndTime)
             .NotEmpty().WithMessage("La fecha y hora de fin es requerida.")
+            .Must(value => value.Kind == DateTimeKind.Utc).WithMessage("La hora de fin debe enviarse en UTC.")
             .GreaterThan(x => x.StartTime).WithMessage("La hora de fin debe ser posterior a la hora de inicio.");
 
         RuleFor(x => x.AgreedTotal)
-            .GreaterThanOrEqualTo(0).WithMessage("El total pactado debe ser mayor o igual a cero.");
+            .GreaterThanOrEqualTo(0).WithMessage("El total pactado debe ser mayor o igual a cero.")
+            .PrecisionScale(10, 2, true).WithMessage("El total pactado admite hasta ocho enteros y dos decimales.");
 
         When(x => !string.IsNullOrWhiteSpace(x.ClientEmail), () =>
         {
-            RuleFor(x => x.ClientEmail)
-                .EmailAddress().WithMessage("El formato del correo electrónico no es válido.");
+            RuleFor(x => x.ClientEmail!.Trim())
+                .MaximumLength(150).WithMessage("El correo electrónico no puede exceder 150 caracteres.")
+                .EmailAddress().WithMessage("El formato del correo electrónico no es válido.")
+                .OverridePropertyName(nameof(CreateAppointmentCommand.ClientEmail));
         });
 
         When(x => !string.IsNullOrWhiteSpace(x.ClientPhone), () =>
         {
-            RuleFor(x => x.ClientPhone)
-                .MaximumLength(30).WithMessage("El teléfono no puede exceder 30 caracteres.");
+            RuleFor(x => x.ClientPhone!.Trim())
+                .MaximumLength(Appointment.PhoneMaxLength).WithMessage("El teléfono no puede exceder 20 caracteres.")
+                .OverridePropertyName(nameof(CreateAppointmentCommand.ClientPhone));
         });
     }
 }

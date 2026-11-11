@@ -28,13 +28,19 @@ public class ExchangeTokenHandler(
             return Result<AuthResponse>.Fail("Credenciales de sesión inválidas.");
         }
 
+        var email = request.Email.Trim();
         var user = await _userRepository.GetByIdAsync(request.UserId, cancellationToken)
-                ?? await _userRepository.GetByEmailAsync(request.Email.Trim(), cancellationToken);
+                ?? await _userRepository.GetByEmailAsync(email, cancellationToken);
 
-        if (user == null || user.Id != request.UserId ||
-            !string.Equals(user.Email, request.Email.Trim(), StringComparison.OrdinalIgnoreCase))
+        if (user is null)
         {
-            return Result<AuthResponse>.Fail("El usuario aún no cuenta con un negocio sincronizado.");
+            return Result<AuthResponse>.NotFound("El usuario aún no cuenta con un negocio sincronizado.");
+        }
+
+        if (!user.IsActive || user.BusinessId == Guid.Empty || user.Id != request.UserId ||
+            !string.Equals(user.Email, email, StringComparison.OrdinalIgnoreCase))
+        {
+            return Result<AuthResponse>.Fail("No se pudo vincular esta cuenta con un negocio activo.", ErrorType.Forbidden);
         }
 
         var accessToken = _jwtService.GenerateAccessToken(user);
@@ -44,7 +50,7 @@ public class ExchangeTokenHandler(
         {
             AccessToken = accessToken,
             RefreshToken = refreshToken,
-            ExpiresAt = DateTime.UtcNow.AddMinutes(60),
+            ExpiresAt = DateTime.UtcNow.Add(IJwtService.AccessTokenLifetime),
             User = new AuthUserDto
             {
                 Id = user.Id,

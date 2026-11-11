@@ -3,6 +3,7 @@ using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Slotify.Application.Common.Behaviors;
+using Slotify.Application.Features.Calendar;
 
 namespace Slotify.Application;
 
@@ -26,6 +27,7 @@ public static class DependencyInjection
 
         // Pipeline behaviors
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+        services.AddScoped<CalendarAvailability>();
 
         return services;
     }

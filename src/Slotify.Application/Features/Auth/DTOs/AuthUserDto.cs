@@ -12,6 +12,7 @@ public record AuthUserDto
     public required string Email { get; init; }
     public required string Role { get; init; }
     public required Guid BusinessId { get; init; }
+    public string? BusinessName { get; init; }
     public string? AccessToken { get; init; }
     public string? RefreshToken { get; init; }
 }

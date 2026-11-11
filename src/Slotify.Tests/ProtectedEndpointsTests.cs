@@ -11,6 +11,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.IdentityModel.Tokens;
 using Moq;
+using Slotify.Application.Features.Calendar;
+using Slotify.API.Services;
+using Slotify.Infrastructure.Services;
 using Slotify.Domain.Entities;
 using Slotify.Domain.Enums;
 using Slotify.Domain.Interfaces;
@@ -69,6 +72,7 @@ public class ProtectedEndpointsTests
                     services.AddScoped(_ => bizRepoMock.Object);
                     services.AddScoped(_ => templateRepoMock.Object);
                     services.AddScoped(_ => uowMock.Object);
+                    services.AddScoped<ICalendarDatabase, TestCalendarDatabase>();
                 });
             });
     }
@@ -83,6 +87,8 @@ public class ProtectedEndpointsTests
 
         var descriptor = new SecurityTokenDescriptor
         {
+            Issuer = JwtService.Issuer,
+            Audience = JwtService.Audience,
             Subject = new ClaimsIdentity(
             [
                 new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
@@ -99,6 +105,104 @@ public class ProtectedEndpointsTests
 
         var token = tokenHandler.CreateToken(descriptor);
         return tokenHandler.WriteToken(token);
+    }
+
+    [Fact]
+    public async Task Login_IgnoraLaIdentidadDelBodyYExigeSesionDeSupabase()
+    {
+        var verifiedUser = new User
+        {
+            Id = Guid.NewGuid(), BusinessId = Guid.NewGuid(), Email = "verificado@example.invalid"
+        };
+        var newUser = new SupabaseIdentity(Guid.NewGuid(), "nuevo@example.invalid");
+        var supabase = new Mock<ISupabaseIdentityVerifier>();
+        supabase.Setup(v => v.VerifyAsync("sesion-verificada", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SupabaseIdentity(verifiedUser.Id, verifiedUser.Email));
+        supabase.Setup(v => v.VerifyAsync("sesion-nueva", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(newUser);
+        supabase.Setup(v => v.VerifyAsync("otra-identidad", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SupabaseIdentity(Guid.NewGuid(), verifiedUser.Email));
+        var users = new Mock<IUserRepository>();
+        users.Setup(r => r.GetByIdAsync(verifiedUser.Id, It.IsAny<CancellationToken>())).ReturnsAsync(verifiedUser);
+        users.Setup(r => r.GetByEmailAsync(verifiedUser.Email, It.IsAny<CancellationToken>())).ReturnsAsync(verifiedUser);
+        var writes = new Mock<IUnitOfWork>();
+        using var baseFactory = CreateTestFactory();
+        using var factory = baseFactory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
+        {
+            services.AddScoped(_ => supabase.Object);
+            services.AddScoped(_ => users.Object);
+            services.AddScoped(_ => writes.Object);
+        }));
+        using var client = factory.CreateClient();
+        var forged = new { userId = Guid.NewGuid(), email = "otra-persona@example.invalid" };
+
+        (await client.PostAsJsonAsync("/api/auth/login", forged)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        users.Verify(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "sesion-verificada");
+        var response = await client.PostAsJsonAsync("/api/auth/login", forged);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        var token = new JwtSecurityTokenHandler().ReadJwtToken(body.GetProperty("data").GetProperty("accessToken").GetString());
+        token.Subject.Should().Be(verifiedUser.Id.ToString());
+        token.Claims.Single(c => c.Type == "businessId").Value.Should().Be(verifiedUser.BusinessId.ToString());
+
+        var repeatedSetup = await client.PostAsJsonAsync("/api/auth/sync", new
+        {
+            id = verifiedUser.Id,
+            email = verifiedUser.Email,
+            firstName = "Titular",
+            businessName = "Nombre que no debe reemplazar el actual"
+        });
+        repeatedSetup.StatusCode.Should().Be(HttpStatusCode.OK);
+        var existing = await repeatedSetup.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        existing.GetProperty("data").GetProperty("businessId").GetGuid().Should().Be(verifiedUser.BusinessId);
+        writes.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "sesion-nueva");
+        var missing = await client.PostAsJsonAsync("/api/auth/login", forged);
+        missing.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        var missingBody = await missing.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        missingBody.GetProperty("code").GetString().Should().Be("business_profile_missing");
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "otra-identidad");
+        (await client.PostAsJsonAsync("/api/auth/login", forged)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task PatchCalendarAppointment_ReprogramaCompletaYRechazaOtroNegocio()
+    {
+        var business = Guid.NewGuid();
+        var start = DateTime.UtcNow.AddDays(1);
+        var appointment = new Appointment
+        {
+            Id = Guid.NewGuid(), BusinessId = business, StartTime = start, EndTime = start.AddHours(1)
+        };
+        var appointments = new Mock<IAppointmentRepository>();
+        var blocks = new Mock<IScheduleBlockRepository>();
+        var unitOfWork = new Mock<IUnitOfWork>();
+        appointments.Setup(r => r.GetByIdAsync(appointment.Id, It.IsAny<CancellationToken>())).ReturnsAsync(appointment);
+        appointments.Setup(r => r.GetByDateRangeAsync(business, It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { appointment });
+        blocks.Setup(r => r.GetByDateRangeAsync(business, It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<ScheduleBlock>());
+        using var factory = CreateTestFactory(appointments, blocks, uowMock: unitOfWork);
+        using var client = factory.CreateClient();
+        var path = $"/api/calendar/appointments/{appointment.Id}";
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", GenerateToken(Guid.NewGuid(), Guid.NewGuid()));
+
+        (await client.PatchAsJsonAsync(path, new { status = "cancelled" })).StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", GenerateToken(Guid.NewGuid(), business));
+        var newStart = start.AddMinutes(30);
+        (await client.PatchAsJsonAsync(path, new { startTime = newStart, endTime = newStart.AddHours(1) }))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+        (await client.PatchAsJsonAsync(path, new { status = "completed" })).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        appointment.StartTime.Should().Be(newStart);
+        appointment.Status.Should().Be(AppointmentStatus.Completed);
+        unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Exactly(2));
     }
 
     [Fact]

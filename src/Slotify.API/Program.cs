@@ -21,6 +21,9 @@ builder.Services.AddApplicationServices();
 builder.Services.AddInfrastructureServices(builder.Configuration);
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+builder.Services.AddHttpClient<ISupabaseIdentityVerifier, SupabaseIdentityVerifier>(client =>
+    client.Timeout = TimeSpan.FromSeconds(8))
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 
 // Auth Setup
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -36,8 +39,10 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
         {
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(jwtSecret)),
-            ValidateIssuer = false,
-            ValidateAudience = false,
+            ValidIssuer = Slotify.Infrastructure.Services.JwtService.Issuer,
+            ValidAudience = Slotify.Infrastructure.Services.JwtService.Audience,
+            ValidateIssuer = true,
+            ValidateAudience = true,
             ClockSkew = TimeSpan.Zero
         };
     });
