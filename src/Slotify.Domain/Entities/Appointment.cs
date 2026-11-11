@@ -13,6 +13,11 @@ using Slotify.Domain.Enums;
 /// </summary>
 public class Appointment : AuditableEntity
 {
+    public const int PhoneMaxLength = 20;
+
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public string? ServiceTitle { get; set; }
+
     /// <summary>FK al negocio (id_negocio).</summary>
     public Guid BusinessId { get; set; }
 

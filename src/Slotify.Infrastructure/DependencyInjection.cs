@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Slotify.Application.Common.Interfaces;
+using Slotify.Application.Features.Calendar;
 using Slotify.Domain.Interfaces;
 using Slotify.Infrastructure.Data;
 using Slotify.Infrastructure.Data.Repositories;
@@ -30,16 +31,19 @@ public static class DependencyInjection
             }));
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddScoped<ICalendarDatabase, CalendarDatabase>();
 
         // Repositories
         services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IBusinessRepository, BusinessRepository>();
+        services.AddScoped<IAvailabilityScheduleRepository, AvailabilityScheduleRepository>();
         services.AddScoped<ISectorTemplateRepository, SectorTemplateRepository>();
 
         services.AddScoped<IScheduleBlockRepository, ScheduleBlockRepository>();
         services.AddScoped<IAppointmentRepository, AppointmentRepository>();
         services.AddScoped<IClientRepository, ClientRepository>();
+        services.AddScoped<IBusinessClientRepository, BusinessClientRepository>();
 
         // Auth Services
         services.AddScoped<IJwtService, JwtService>();

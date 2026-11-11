@@ -35,6 +35,8 @@ public record CalendarSlotDto
 
     /// <summary>Precio del servicio.</summary>
     public string? ServicePrice { get; init; }
+    public decimal? AgreedTotal { get; init; }
+    public Guid? EmployeeId { get; init; }
 
     /// <summary>Nombre del empleado asignado.</summary>
     public string? EmployeeName { get; init; }
@@ -45,6 +47,7 @@ public record CalendarSlotDto
 /// </summary>
 public record CalendarResponse
 {
+    public string TimeZone { get; init; } = "America/Mexico_City";
     /// <summary>Fecha de inicio del rango consultado.</summary>
     public required DateTime RangeStart { get; init; }
 
