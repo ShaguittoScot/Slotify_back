@@ -20,7 +20,7 @@ public class GetScheduleBlocksHandler(
     {
         if (_currentUserService.BusinessId is not { } businessId || businessId == Guid.Empty)
         {
-            return Result<IReadOnlyList<ScheduleBlockDto>>.Fail("El usuario autenticado no tiene un negocio asignado.");
+            return Result<IReadOnlyList<ScheduleBlockDto>>.Fail("El usuario autenticado no tiene un negocio asignado.", ErrorType.Forbidden);
         }
 
         var blocks = await _scheduleBlockRepository.GetByDateRangeAsync(

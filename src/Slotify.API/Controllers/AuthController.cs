@@ -29,10 +29,7 @@ public class AuthController(IMediator mediator) : ControllerBase
     {
         var result = await _mediator.Send(command, cancellationToken);
 
-        if (!result.Success)
-            return BadRequest(result);
-
-        return Ok(result);
+        return result.ToActionResult();
     }
 
     /// <summary>

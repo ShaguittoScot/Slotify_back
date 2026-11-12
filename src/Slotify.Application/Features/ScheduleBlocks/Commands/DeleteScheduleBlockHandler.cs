@@ -25,7 +25,7 @@ public class DeleteScheduleBlockHandler(
     {
         if (_currentUserService.BusinessId is not { } businessId || businessId == Guid.Empty)
         {
-            return Result.Fail(ForbiddenError);
+            return Result.Fail(ForbiddenError, ErrorType.Forbidden);
         }
 
         // 1. Buscar bloqueo por ID

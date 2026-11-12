@@ -1,5 +1,6 @@
 using FluentValidation;
 using MediatR;
+using Slotify.Application.Common.Interfaces;
 using Slotify.Application.Common.Models;
 using Slotify.Application.Features.SectorTemplates.DTOs;
 using Slotify.Domain.Entities;
@@ -65,7 +66,8 @@ public class UpdateBusinessFormConfigValidator : AbstractValidator<UpdateBusines
 
 public class UpdateBusinessFormConfigCommandHandler(
     IBusinessRepository repository,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    ICurrentUserService? currentUserService = null)
     : IRequestHandler<UpdateBusinessFormConfigCommand, Result<bool>>
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -79,11 +81,15 @@ public class UpdateBusinessFormConfigCommandHandler(
 
     private readonly IBusinessRepository _repository = repository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
+    private readonly ICurrentUserService? _currentUserService = currentUserService;
 
     public async Task<Result<bool>> Handle(
         UpdateBusinessFormConfigCommand request,
         CancellationToken cancellationToken)
     {
+        if (_currentUserService is not null && !BelongsToAuthenticatedBusiness(request.BusinessId))
+            return Result<bool>.Fail("No tienes permisos para modificar otro negocio.", ErrorType.Forbidden);
+
         var business = await _repository.GetByIdAsync(request.BusinessId, cancellationToken);
         if (business == null)
             return Result<bool>.NotFound("Negocio no encontrado.");
@@ -121,11 +127,12 @@ public class UpdateBusinessFormConfigCommandHandler(
             business.Name = parsedConfig.BusinessName.Trim();
         }
 
+        var normalizedAccent = parsedConfig.AccentColor.Trim().ToUpperInvariant();
         var normalizedConfig = parsedConfig with
         {
-            AccentColor = parsedConfig.AccentColor.Trim().ToUpperInvariant(),
+            AccentColor = normalizedAccent,
             SecondaryColor = string.IsNullOrWhiteSpace(parsedConfig.SecondaryColor)
-                ? parsedConfig.AccentColor.Trim().ToUpperInvariant()
+                ? normalizedAccent
                 : parsedConfig.SecondaryColor.Trim().ToUpperInvariant(),
             BusinessName = string.IsNullOrWhiteSpace(parsedConfig.BusinessName)
                 ? business.Name
@@ -133,10 +140,23 @@ public class UpdateBusinessFormConfigCommandHandler(
         };
 
         business.CustomFormConfig = JsonSerializer.Serialize(normalizedConfig, JsonOptions);
+        if (business.Brand != null)
+        {
+            business.Brand.LogoUrl = normalizedConfig.LogoUrl;
+            business.Brand.PrimaryColor = normalizedConfig.AccentColor;
+            business.Brand.IsDefault = false;
+            business.Brand.UpdatedAt = DateTime.UtcNow;
+        }
         business.UpdatedAt = DateTime.UtcNow;
 
         await _repository.UpdateAsync(business, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         return Result<bool>.Ok(true);
     }
+
+    private bool BelongsToAuthenticatedBusiness(Guid targetBusinessId) =>
+        targetBusinessId != Guid.Empty
+        && _currentUserService?.BusinessId is { } tokenBusinessId
+        && tokenBusinessId != Guid.Empty
+        && tokenBusinessId == targetBusinessId;
 }

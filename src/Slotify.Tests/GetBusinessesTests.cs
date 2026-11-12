@@ -114,5 +114,39 @@ public class GetBusinessesTests
         item.Services.First().Price.Should().Be(250m);
         item.Services.First().DurationMinutes.Should().Be(45);
     }
+
+    [Fact]
+    public async Task Handle_DeberiaUsarIdentidadDeCustomFormConfig_CuandoBrandNoTieneLogoNiColorPersonalizado()
+    {
+        // Arrange
+        var mockRepo = new Mock<IBusinessRepository>();
+        var business = new Business
+        {
+            Id = Guid.NewGuid(),
+            Name = "Spa Zen",
+            Slug = "spa-zen",
+            CustomFormConfig = """
+            {
+              "logoUrl": "https://cdn.slotify.app/logos/spa-zen.png",
+              "accentColor": "#10B981",
+              "secondaryColor": "#059669",
+              "fields": []
+            }
+            """
+        };
+
+        mockRepo.Setup(r => r.GetAllWithDetailsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([business]);
+
+        var handler = new GetBusinessesHandler(mockRepo.Object);
+
+        // Act
+        var result = (await handler.Handle(new GetBusinessesQuery(), CancellationToken.None)).ToList();
+
+        // Assert
+        result.Should().ContainSingle();
+        result[0].LogoUrl.Should().Be("https://cdn.slotify.app/logos/spa-zen.png");
+        result[0].BrandColor.Should().Be("#10B981");
+    }
 }
 

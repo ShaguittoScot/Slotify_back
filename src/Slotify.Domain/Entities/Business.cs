@@ -54,4 +54,39 @@ public partial class Business : AuditableEntity
 
     /// <summary>Catálogo de servicios ofrecidos por el negocio.</summary>
     public ICollection<Service> Services { get; set; } = [];
+
+    // ── Lógica de Dominio ─────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Genera el slug URL-friendly a partir del nombre del negocio.
+    /// Regla: minúsculas, sin espacios (reemplazados por guiones).
+    /// Centralizado aquí (SRP) para que cualquier cambio de regla
+    /// solo requiera editar esta clase.
+    /// </summary>
+    /// <param name="name">Nombre del negocio.</param>
+    /// <returns>Slug generado. Ejemplo: "Mi Barbería" → "mi-barbería"</returns>
+    public static string GenerateSlug(string name) =>
+        name.Trim().ToLowerInvariant().Replace(" ", "-");
+
+    /// <summary>
+    /// Valida que un color corporativo cumpla con el formato hexadecimal #RGB o #RRGGBB.
+    /// </summary>
+    public static bool IsValidCorporateHexColor(string? color) =>
+        !string.IsNullOrWhiteSpace(color) && HexColorRegex.IsMatch(color.Trim());
+
+    /// <summary>
+    /// Valida que la fuente del logotipo sea una URL HTTP(S) válida o un Data URI de imagen seguro.
+    /// </summary>
+    public static bool IsValidLogoSource(string? logoUrl)
+    {
+        if (string.IsNullOrWhiteSpace(logoUrl))
+            return true; // El logotipo es opcional (puede removerse)
+
+        var trimmed = logoUrl.Trim();
+        if (trimmed.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase))
+            return trimmed.Length <= 5_500_000; // Máximo ~4MB en Base64
+
+        return Uri.TryCreate(trimmed, UriKind.Absolute, out var uri)
+            && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+    }
 }
