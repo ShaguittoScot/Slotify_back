@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Slotify — Consola de Monitoreo y Observabilidad Móvil</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0f172a; color: #f8fafc; font-family: 'Segoe UI', system-ui, sans-serif; padding: 20px; }
+    header { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 16px 22px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+    header h1 { font-size: 18px; color: #38bdf8; font-family: Consolas, monospace; }
+    header .meta { font-size: 13px; color: #94a3b8; font-family: Consolas, monospace; }
+    .toolbar { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+    button { background: #2563eb; color: #fff; border: none; padding: 9px 15px; border-radius: 7px; cursor: pointer; font-weight: 600; font-size: 13px; transition: opacity 0.15s; }
+    button:hover { opacity: 0.9; }
+    button.warn { background: #d97706; }
+    button.err { background: #dc2626; }
+    .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 16px; }
+    .card .label { font-size: 12px; color: #94a3b8; font-weight: 700; letter-spacing: 0.5px; }
+    .card .val { font-size: 26px; font-weight: 800; font-family: Consolas, monospace; margin: 8px 0 4px; }
+    .card .sub { font-size: 12px; color: #cbd5e1; font-family: Consolas, monospace; }
+    .panel { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 18px; margin-bottom: 18px; }
+    .panel h2 { font-size: 14px; color: #38bdf8; font-family: Consolas, monospace; margin-bottom: 14px; }
+    .span-row { display: grid; grid-template-columns: 440px 1fr 80px; align-items: center; gap: 12px; padding: 7px 0; border-bottom: 1px solid #263349; font-family: Consolas, monospace; font-size: 12.5px; }
+    .bar-wrap { background: #0f172a; height: 18px; border-radius: 4px; position: relative; overflow: hidden; }
+    .bar { height: 100%; border-radius: 4px; }
+    table { width: 100%; border-collapse: collapse; font-family: Consolas, monospace; font-size: 12.5px; }
+    th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid #263349; }
+    th { color: #94a3b8; font-size: 11.5px; text-transform: uppercase; }
+    .badge { padding: 2px 7px; border-radius: 4px; font-weight: 700; font-size: 11px; }
+    .DEBUG { background: #334155; color: #cbd5e1; }
+    .INFO { background: #065f46; color: #6ee7b7; }
+    .WARNING { background: #78350f; color: #fcd34d; }
+    .ERROR, .FATAL { background: #7f1d1d; color: #fca5a5; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>SLOTIFY MOBILE OBSERVABILITY — SENTRY RN + SERILOG / OTEL CONSOLE</h1>
+    <div class="meta">Release: slotify-mobile@1.0.0 (Expo 58 / RN 0.88 / .NET 9)</div>
+  </header>
+
+  <div class="toolbar">
+    <button onclick="simulateTrace()">⚡ Simular Flujo Crear Cita (Traza + 4 Spans)</button>
+    <button class="warn" onclick="simulateOfflineBatch()">📦 Simular Log Buffering Offline (Batch Sync)</button>
+    <button class="err" onclick="simulateError()">🚨 Simular Error / Conflicto Horario (ERROR)</button>
+  </div>
+
+  <div class="cards">
+    <div class="card">
+      <div class="label">CRASH-FREE SESSIONS</div>
+      <div class="val" style="color:#34d399">99.82%</div>
+      <div class="sub">Umbral industria: &gt;= 99.0% (OK)</div>
+    </div>
+    <div class="card">
+      <div class="label">COLD APP START TIME</div>
+      <div class="val" style="color:#38bdf8">1,420 ms</div>
+      <div class="sub">Umbral Slotify: &lt; 1,800 ms (OK)</div>
+    </div>
+    <div class="card">
+      <div class="label">API P95 RESPONSE TIME</div>
+      <div class="val" style="color:#a78bfa" id="metric-latency">248 ms</div>
+      <div class="sub">Umbral MediatR: &lt; 500 ms</div>
+    </div>
+    <div class="card">
+      <div class="label">OFFLINE BUFFERED LOGS</div>
+      <div class="val" style="color:#fbbf24" id="metric-buffered">2 Synced</div>
+      <div class="sub">POST /api/telemetry/batch</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>DISTRIBUTED TRACE WATERFALL — Flujo: BookingCheckout_CreateAppointment (TraceId: 4bf92f3577b34da6a3ce929d0e0e4736 | Total: 382 ms)</h2>
+    <div class="span-row">
+      <div>Span 1 [ui.action.press] Validación de formulario (RN)</div>
+      <div class="bar-wrap"><div class="bar" style="margin-left:0%;width:8%;background:#38bdf8"></div></div>
+      <div>28 ms</div>
+    </div>
+    <div class="span-row">
+      <div>Span 2 [auth.secure_store] Lectura JWT businessId</div>
+      <div class="bar-wrap"><div class="bar" style="margin-left:8%;width:6%;background:#a78bfa"></div></div>
+      <div>19 ms</div>
+    </div>
+    <div class="span-row">
+      <div>Span 3 [http.client / MediatR] POST /api/calendar/appointments</div>
+      <div class="bar-wrap"><div class="bar" style="margin-left:14%;width:72%;background:#fbbf24"></div></div>
+      <div>289 ms</div>
+    </div>
+    <div class="span-row">
+      <div>Span 4 [db.sql.efcore] INSERT INTO citas (Supabase PostgreSQL)</div>
+      <div class="bar-wrap"><div class="bar" style="margin-left:86%;width:14%;background:#34d399"></div></div>
+      <div>46 ms</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2 style="color:#fbbf24">LIVE TELEMETRY &amp; STRUCTURED LOG STREAM (Sentry Breadcrumbs + Slotify Backend Serilog Sink)</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Timestamp (UTC)</th>
+          <th>Categoría</th>
+          <th>Nivel</th>
+          <th>TraceId / SpanId</th>
+          <th>Flujo</th>
+          <th>Mensaje / Evento</th>
+          <th>Duración</th>
+          <th>Offline Buffer</th>
+        </tr>
+      </thead>
+      <tbody id="log-rows"></tbody>
+    </table>
+  </div>
+
+  <script>
+    const localEvents = [
+      { timestamp: new Date().toISOString(), category: 'TRACE', level: 'INFO', traceId: '4bf92f3577b34da6a3ce929d0e0e4736', spanId: '00f067aa0ba902b7', flow: 'BookingCheckout_CreateAppointment', message: 'Span 3 & 4: POST /api/calendar/appointments -> CreateAppointmentHandler ($250 MXN)', durationMs: 248, wasBufferedOffline: false },
+      { timestamp: new Date(Date.now() - 4000).toISOString(), category: 'LOG', level: 'WARNING', traceId: '4bf92f3577b34da6a3ce929d0e0e4736', spanId: 'a2fb4a1d1a96d312', flow: 'ExploreCatalog_LoadBusinesses', message: 'Timeout (15000ms) en GET /api/businesses; activando DEFAULT_BUSINESS_CATALOG offline fallback', durationMs: 15000, wasBufferedOffline: true },
+      { timestamp: new Date(Date.now() - 8000).toISOString(), category: 'METRIC', level: 'INFO', traceId: '4bf92f3577b34da6a3ce929d0e0e4736', spanId: 'b821ef34a912044c', flow: 'MediatR.GetCalendarSlotsQuery', message: '[METRIC:API_RESPONSE_TIME] GetCalendarSlotsQuery completado en 184ms (Slots=12)', durationMs: 184, wasBufferedOffline: false },
+      { timestamp: new Date(Date.now() - 12000).toISOString(), category: 'LOG', level: 'DEBUG', traceId: '4bf92f3577b34da6a3ce929d0e0e4736', spanId: 'a190bc12e410098a', flow: 'RootLayout_Hydrate', message: 'Hidratando sesión desde expo-secure-store (appMode=BUSINESS, Poppins/Inter cargadas=true)', durationMs: 19, wasBufferedOffline: false }
+    ];
+
+    function render() {
+      const tbody = document.getElementById('log-rows');
+      tbody.innerHTML = '';
+      let buffered = 0;
+      for (const e of localEvents) {
+        if (e.wasBufferedOffline) buffered++;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${new Date(e.timestamp).toISOString().replace('T', ' ').substring(0, 23)}</td>
+          <td>${e.category}</td>
+          <td><span class="badge ${e.level}">${e.level}</span></td>
+          <td>${e.traceId.substring(0, 10)}... / ${e.spanId.substring(0, 8)}</td>
+          <td>${e.flow}</td>
+          <td>${e.message}</td>
+          <td>${e.durationMs} ms</td>
+          <td>${e.wasBufferedOffline ? '✅ Sí (AsyncStorage)' : 'En línea'}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+      document.getElementById('metric-buffered').innerText = buffered + ' Synced';
+    }
+
+    function hex(len) {
+      return Array.from({length: len}, () => Math.floor(Math.random()*16).toString(16)).join('');
+    }
+
+    function simulateTrace() {
+      const t = hex(32);
+      localEvents.unshift({
+        timestamp: new Date().toISOString(),
+        category: 'TRACE',
+        level: 'INFO',
+        traceId: t,
+        spanId: hex(16),
+        flow: 'BookingCheckout_CreateAppointment',
+        message: 'POST /api/calendar/appointments completado e insertado en Supabase PostgreSQL',
+        durationMs: Math.floor(190 + Math.random() * 90),
+        wasBufferedOffline: false
+      });
+      render();
+    }
+
+    function simulateOfflineBatch() {
+      localEvents.unshift({
+        timestamp: new Date().toISOString(),
+        category: 'LOG',
+        level: 'WARNING',
+        traceId: hex(32),
+        spanId: hex(16),
+        flow: 'ExploreCatalog_LoadBusinesses',
+        message: 'Batch sincronizado desde @slotify/telemetry_queue_v1 (DEFAULT_BUSINESS_CATALOG activo)',
+        durationMs: 15000,
+        wasBufferedOffline: true
+      });
+      render();
+    }
+
+    function simulateError() {
+      localEvents.unshift({
+        timestamp: new Date().toISOString(),
+        category: 'CRASH',
+        level: 'ERROR',
+        traceId: hex(32),
+        spanId: hex(16),
+        flow: 'ScheduleBlocks_Create',
+        message: 'ValidationException HTTP 409 en POST /api/schedule-blocks: Solapamiento 14:00-15:00 UTC',
+        durationMs: 115,
+        wasBufferedOffline: false
+      });
+      render();
+    }
+
+    render();
+  </script>
+</body>
+</html>
+

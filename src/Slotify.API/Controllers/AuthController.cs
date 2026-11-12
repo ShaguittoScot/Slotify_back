@@ -28,18 +28,19 @@ public class AuthController(IMediator mediator, ISupabaseIdentityVerifier supaba
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ExchangeToken(
-        CancellationToken cancellationToken)
-    {
-        var identity = await GetVerifiedIdentity(cancellationToken);
-        if (identity is null)
-            return InvalidSession();
-
-        var result = await _mediator.Send(new ExchangeTokenCommand(identity.Id, identity.Email), cancellationToken);
-        if (result.ErrorType == ErrorType.NotFound)
-            return NotFound(new { success = false, code = "business_profile_missing", error = result.Errors[0] });
-
-        return result.ToActionResult();
-    }
+        CancellationToken cancellationToken) =>
+        await VerifyAndExecuteAsync(
+            cancellationToken,
+            identity => identity is not null,
+            async identity =>
+            {
+                var result = await _mediator.Send(new ExchangeTokenCommand(identity!.Id, identity.Email), cancellationToken);
+                return result.ErrorType switch
+                {
+                    ErrorType.NotFound => NotFound(new { success = false, code = "business_profile_missing", error = result.Errors[0] }),
+                    _ => result.ToActionResult()
+                };
+            });
 
     /// <summary>
     /// Registra un nuevo administrador y crea su negocio, devolviendo el perfil y su JWT.
@@ -50,16 +51,11 @@ public class AuthController(IMediator mediator, ISupabaseIdentityVerifier supaba
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Sync(
         [FromBody] RegisterAdminCommand command,
-        CancellationToken cancellationToken)
-    {
-        var identity = await GetVerifiedIdentity(cancellationToken);
-        if (!Matches(identity, command.Id, command.Email))
-            return InvalidSession();
-
-        var result = await _mediator.Send(command, cancellationToken);
-
-        return result.ToActionResult();
-    }
+        CancellationToken cancellationToken) =>
+        await VerifyAndExecuteAsync(
+            cancellationToken,
+            identity => Matches(identity, command.Id, command.Email),
+            async _ => (await _mediator.Send(command, cancellationToken)).ToActionResult());
 
     /// <summary>
     /// Registra o sincroniza un cliente consumidor (CLIENTE) en la tabla clientes.
@@ -69,27 +65,37 @@ public class AuthController(IMediator mediator, ISupabaseIdentityVerifier supaba
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> SyncClient(
         [FromBody] RegisterClientCommand command,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken) =>
+        await VerifyAndExecuteAsync(
+            cancellationToken,
+            identity => Matches(identity, command.Id, command.Email),
+            async _ => (await _mediator.Send(command, cancellationToken)).ToActionResult());
+
+    private async Task<IActionResult> VerifyAndExecuteAsync(
+        CancellationToken cancellationToken,
+        Func<SupabaseIdentity?, bool> predicate,
+        Func<SupabaseIdentity?, Task<IActionResult>> action)
     {
         var identity = await GetVerifiedIdentity(cancellationToken);
-        if (!Matches(identity, command.Id, command.Email))
-            return InvalidSession();
-
-        var result = await _mediator.Send(command, cancellationToken);
-
-        return result.ToActionResult();
+        return predicate(identity) switch
+        {
+            true => await action(identity),
+            false => InvalidSession()
+        };
     }
 
     private async Task<SupabaseIdentity?> GetVerifiedIdentity(CancellationToken cancellationToken)
     {
-        if (!AuthenticationHeaderValue.TryParse(Request.Headers.Authorization, out var header) ||
-            !string.Equals(header.Scheme, "Bearer", StringComparison.OrdinalIgnoreCase) ||
-            string.IsNullOrWhiteSpace(header.Parameter))
-        {
-            return null;
-        }
+        var hasValidBearer =
+            AuthenticationHeaderValue.TryParse(Request.Headers.Authorization, out var header) &&
+            string.Equals(header.Scheme, "Bearer", StringComparison.OrdinalIgnoreCase) &&
+            !string.IsNullOrWhiteSpace(header.Parameter);
 
-        return await supabase.VerifyAsync(header.Parameter, cancellationToken);
+        return hasValidBearer switch
+        {
+            true => await supabase.VerifyAsync(header!.Parameter!, cancellationToken),
+            false => null
+        };
     }
 
     private static bool Matches(SupabaseIdentity? identity, Guid id, string? email) =>
