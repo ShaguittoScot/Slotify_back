@@ -10,17 +10,19 @@ namespace Slotify.Application.Features.Calendar.Commands;
 /// <summary>
 /// Handler para orquestar la creación y persistencia de una nueva cita en el calendario.
 /// Cumple con Single Responsibility (SRP) e Inversión de Dependencias (DIP), inyectando solo abstracciones.
-/// Relacionado con: US-022 (BusinessId resuelto desde ICurrentUserService).
+/// Relacionado con: US-022 (BusinessId resuelto desde ICurrentUserService) y US-023 (Bloqueos de agenda funcionales).
 /// </summary>
 public class CreateAppointmentHandler(
     IAppointmentRepository appointmentRepository,
     IBusinessRepository businessRepository,
+    IScheduleBlockRepository scheduleBlockRepository,
     IUnitOfWork unitOfWork,
     ICurrentUserService currentUserService)
     : IRequestHandler<CreateAppointmentCommand, Result<Guid>>
 {
     private readonly IAppointmentRepository _appointmentRepository = appointmentRepository;
     private readonly IBusinessRepository _businessRepository = businessRepository;
+    private readonly IScheduleBlockRepository _scheduleBlockRepository = scheduleBlockRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly ICurrentUserService _currentUserService = currentUserService;
 
@@ -37,6 +39,34 @@ public class CreateAppointmentHandler(
         if (business == null)
         {
             return Result<Guid>.Fail("El negocio especificado no existe.");
+        }
+
+        // 1. Validar que la franja no esté bloqueada manualmente en la agenda (US-023)
+        var isBlocked = await _scheduleBlockRepository.HasConflictAsync(
+            businessId,
+            request.EmployeeId,
+            request.StartTime,
+            request.EndTime,
+            null,
+            cancellationToken);
+
+        if (isBlocked)
+        {
+            return Result<Guid>.Fail("El horario seleccionado no está disponible debido a un bloqueo de agenda.");
+        }
+
+        // 2. Validar que no exista otra cita confirmada en la misma franja
+        var hasConflict = await _appointmentRepository.HasActiveAppointmentConflictAsync(
+            businessId,
+            request.EmployeeId,
+            request.StartTime,
+            request.EndTime,
+            null,
+            cancellationToken);
+
+        if (hasConflict)
+        {
+            return Result<Guid>.Fail("El horario seleccionado ya cuenta con una cita confirmada.");
         }
 
         var appointment = new Appointment

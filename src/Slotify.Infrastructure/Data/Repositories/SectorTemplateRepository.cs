@@ -4,6 +4,10 @@ using Slotify.Domain.Interfaces;
 
 namespace Slotify.Infrastructure.Data.Repositories;
 
+/// <summary>
+/// Repositorio EF Core de solo lectura para SectorTemplate.
+/// Implementa ISectorTemplateRepository (IReadRepository&lt;SectorTemplate, int&gt;) cumpliendo ISP.
+/// </summary>
 public class SectorTemplateRepository(AppDbContext context) : ISectorTemplateRepository
 {
     private readonly AppDbContext _context = context;

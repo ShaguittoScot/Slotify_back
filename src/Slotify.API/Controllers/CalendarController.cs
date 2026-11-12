@@ -8,32 +8,30 @@ using Slotify.Application.Features.Calendar.Queries;
 namespace Slotify.API.Controllers;
 
 /// <summary>
-/// Controller para la vista de calendario del negocio.
-/// Relacionado con: US-003 (Navegación Multiformato en Calendario Táctil) y US-022 (Negocio del token).
+/// Controller para la gestión y consulta de eventos del calendario y citas.
+/// Expone endpoints para obtener slots agregados (citas y bloqueos) y registrar citas.
+/// Relacionado con: US-003 (Calendario Táctil Multiformato), US-022 (Aislamiento por negocio).
 /// 
 /// Endpoints:
-/// - GET /api/calendar/slots?startDate=...&endDate=... → Obtener slots del calendario
-/// - POST /api/calendar/appointments → Crear cita en el negocio autenticado
+/// - GET  /api/calendar/slots        → Citas y bloqueos en un rango de fechas
+/// - POST /api/calendar/appointments → Registrar nueva cita manual
 /// 
 /// Requiere autenticación JWT. El BusinessId se extrae exclusivamente del token mediante ICurrentUserService.
 /// </summary>
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/calendar")]
 [Authorize]
 public class CalendarController(IMediator mediator) : ControllerBase
 {
     private readonly IMediator _mediator = mediator;
 
     /// <summary>
-    /// Obtiene los slots del calendario para un rango de fechas.
+    /// Consulta los slots de la agenda (citas y bloqueos) para el rango de fechas indicado.
+    /// Si el negocio no tiene citas, retorna una lista vacía para permitir renderizar el estado vacío.
     /// </summary>
-    /// <remarks>
-    /// Combina citas, bloqueos y disponibilidad en una vista unificada.
-    /// El businessId se extrae del JWT del usuario autenticado.
-    /// Soporta filtro opcional por empleado.
-    /// </remarks>
     [HttpGet("slots")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetSlots(
@@ -69,6 +67,6 @@ public class CalendarController(IMediator mediator) : ControllerBase
         CancellationToken cancellationToken)
     {
         var result = await _mediator.Send(command, cancellationToken);
-        return result.ToActionResult(r => Ok(new { success = true, id = r.Data, businessId = command.BusinessId, data = r.Data }));
+        return result.ToActionResult(r => Ok(new { success = true, id = r.Data, data = r.Data }));
     }
 }

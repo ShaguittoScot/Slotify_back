@@ -9,7 +9,7 @@ namespace Slotify.Application.Features.Calendar.Queries;
 
 /// <summary>
 /// Handler para obtener los slots del calendario.
-/// Relacionado con: US-003 (Navegación Multiformato en Calendario Táctil), US-022 (Negocio del token).
+/// Relacionado con: US-003 (Navegación Multiformato en Calendario Táctil), US-022 (Negocio del token) y US-023.
 /// </summary>
 public class GetCalendarSlotsHandler(
     IAppointmentRepository appointmentRepository,
@@ -51,17 +51,23 @@ public class GetCalendarSlotsHandler(
         }
 
         // 2. Obtener bloqueos de agenda en el rango solicitado
-        var blocks = await _scheduleBlockRepository.GetByDateRangeAsync(
-            businessId,
-            request.StartDate,
-            request.EndDate,
-            cancellationToken);
-
+        IReadOnlyList<ScheduleBlock> blocks;
         if (request.EmployeeId.HasValue)
         {
-            blocks = blocks
-                .Where(b => !b.EmployeeId.HasValue || b.EmployeeId == request.EmployeeId.Value)
-                .ToList();
+            blocks = await _scheduleBlockRepository.GetByEmployeeAndDateRangeAsync(
+                businessId,
+                request.EmployeeId.Value,
+                request.StartDate,
+                request.EndDate,
+                cancellationToken);
+        }
+        else
+        {
+            blocks = await _scheduleBlockRepository.GetByDateRangeAsync(
+                businessId,
+                request.StartDate,
+                request.EndDate,
+                cancellationToken);
         }
 
         // 3. Mapear citas a CalendarSlotDto

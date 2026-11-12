@@ -19,7 +19,7 @@ builder.Host.UseSerilog((context, loggerConfig) =>
 builder.Services.AddApplicationServices();
 builder.Services.AddInfrastructureServices(builder.Configuration);
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+builder.Services.AddScoped<ICurrentUserService, Slotify.API.Services.CurrentUserService>();
 
 // Auth Setup
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

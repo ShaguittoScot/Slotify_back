@@ -3,9 +3,10 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Slotify.API.Common;
+using Slotify.Application.Common.Interfaces;
 using Slotify.Application.Features.Businesses.Commands;
+using Slotify.Application.Features.Businesses.DTOs;
 using Slotify.Application.Features.Businesses.Queries;
-using System.Text.Json;
 
 namespace Slotify.API.Controllers;
 
@@ -31,6 +32,7 @@ public class BusinessesController(
     /// Obtiene la lista de negocios para el explorador y catálogo de clientes.
     /// </summary>
     [HttpGet]
+    [AllowAnonymous]
     [ProducesResponseType(typeof(IEnumerable<BusinessListItemDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
     {
@@ -55,6 +57,9 @@ public class BusinessesController(
         [FromBody] ChangeTemplateRequest request,
         CancellationToken cancellationToken)
     {
+        if (!BelongsToAuthenticatedBusiness(id))
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = "No tiene autorización para modificar este negocio." });
+
         try
         {
             var result = await _mediator.Send(
@@ -69,9 +74,10 @@ public class BusinessesController(
     }
 
     /// <summary>
-    /// Obtiene la configuración de reserva de un negocio por su slug.
+    /// Obtiene la configuración de reserva de un negocio por su slug (público).
     /// </summary>
     [HttpGet("{slug}/booking-config")]
+    [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetBookingConfig(string slug, CancellationToken cancellationToken)
@@ -92,17 +98,20 @@ public class BusinessesController(
     [HttpPut("{id}/booking-config")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateBookingConfig(
         Guid id,
         [FromBody] UpdateFormConfigRequest request,
         CancellationToken cancellationToken)
     {
-        var jsonString = System.Text.Json.JsonSerializer.Serialize(request.FormConfig);
-        var command = new UpdateBusinessFormConfigCommand(id, jsonString);
-        var success = await _mediator.Send(command, cancellationToken);
+        if (!BelongsToAuthenticatedBusiness(id))
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = "No tiene autorización para modificar este negocio." });
 
-        if (!success)
-            return BadRequest(new { error = "No se pudo actualizar la configuración." });
+        var jsonString = JsonSerializer.Serialize(request.FormConfig, CamelCaseOptions);
+        var command = new UpdateBusinessFormConfigCommand(id, jsonString);
+        var result = await _mediator.Send(command, cancellationToken);
 
         return result.ToActionResult(_ =>
             Ok(new { message = "Configuración e identidad de marca actualizadas exitosamente." }));
@@ -115,12 +124,17 @@ public class BusinessesController(
     [HttpPatch("{id}/branding")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateBranding(
         Guid id,
         [FromBody] UpdateBusinessBrandingRequest request,
         CancellationToken cancellationToken)
     {
+        if (!BelongsToAuthenticatedBusiness(id))
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = "No tiene autorización para modificar este negocio." });
+
         var command = new UpdateBusinessBrandIdentityCommand(
             id,
             request.LogoUrl,
@@ -137,4 +151,12 @@ public class BusinessesController(
         && _currentUserService.BusinessId is { } tokenBusinessId
         && tokenBusinessId != Guid.Empty
         && tokenBusinessId == routeBusinessId;
+}
+
+public class UpdateBusinessBrandingRequest
+{
+    public string? LogoUrl { get; set; }
+    public string AccentColor { get; set; } = "#6366F1";
+    public string? SecondaryColor { get; set; }
+    public string? BusinessName { get; set; }
 }

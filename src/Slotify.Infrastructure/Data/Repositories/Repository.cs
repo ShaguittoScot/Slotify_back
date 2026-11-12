@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Slotify.Domain.Common;
 using Slotify.Domain.Interfaces;
 
@@ -7,9 +7,9 @@ namespace Slotify.Infrastructure.Data.Repositories;
 /// <summary>
 /// Generic repository implementation using EF Core.
 /// 
-/// NOTA: Este repositorio NO llama a SaveChangesAsync.
+/// NOTA DE ARQUITECTURA (SRP / Unit of Work):
+/// Este repositorio NO llama a SaveChangesAsync.
 /// El commit de la transacción es responsabilidad exclusiva de IUnitOfWork.
-/// Llamar a SaveChanges aquí violaría SRP y el patrón Unit of Work.
 /// </summary>
 public class Repository<T>(AppDbContext context) : IRepository<T>
     where T : BaseEntity
@@ -30,19 +30,18 @@ public class Repository<T>(AppDbContext context) : IRepository<T>
     public async Task<T> AddAsync(T entity, CancellationToken cancellationToken = default)
     {
         await _dbSet.AddAsync(entity, cancellationToken);
-        // No SaveChanges aquí — el IUnitOfWork del handler controla el commit.
         return entity;
     }
 
-    public async Task UpdateAsync(T entity, CancellationToken cancellationToken = default)
+    public Task UpdateAsync(T entity, CancellationToken cancellationToken = default)
     {
         _dbSet.Update(entity);
-        // No SaveChanges aquí — el IUnitOfWork del handler controla el commit.
+        return Task.CompletedTask;
     }
 
-    public async Task DeleteAsync(T entity, CancellationToken cancellationToken = default)
+    public Task DeleteAsync(T entity, CancellationToken cancellationToken = default)
     {
         _dbSet.Remove(entity);
-        // No SaveChanges aquí — el IUnitOfWork del handler controla el commit.
+        return Task.CompletedTask;
     }
 }

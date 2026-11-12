@@ -79,6 +79,7 @@ public class CreateAppointmentTests
         // Arrange
         var mockApptRepo = new Mock<IAppointmentRepository>();
         var mockBizRepo = new Mock<IBusinessRepository>();
+        var mockScheduleBlockRepo = new Mock<IScheduleBlockRepository>();
         var mockUow = new Mock<IUnitOfWork>();
         var mockCurrentUser = new Mock<ICurrentUserService>();
 
@@ -89,6 +90,22 @@ public class CreateAppointmentTests
         mockBizRepo.Setup(b => b.GetByIdAsync(businessId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(existingBusiness);
 
+        mockScheduleBlockRepo.Setup(s => s.HasConflictAsync(
+            businessId,
+            It.IsAny<Guid?>(),
+            It.IsAny<DateTime>(),
+            It.IsAny<DateTime>(),
+            It.IsAny<long?>(),
+            It.IsAny<CancellationToken>())).ReturnsAsync(false);
+
+        mockApptRepo.Setup(a => a.HasActiveAppointmentConflictAsync(
+            businessId,
+            It.IsAny<Guid?>(),
+            It.IsAny<DateTime>(),
+            It.IsAny<DateTime>(),
+            It.IsAny<Guid?>(),
+            It.IsAny<CancellationToken>())).ReturnsAsync(false);
+
         mockApptRepo.Setup(a => a.AddAsync(It.IsAny<Appointment>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Appointment a, CancellationToken _) => a);
 
@@ -98,6 +115,7 @@ public class CreateAppointmentTests
         var handler = new CreateAppointmentHandler(
             mockApptRepo.Object,
             mockBizRepo.Object,
+            mockScheduleBlockRepo.Object,
             mockUow.Object,
             mockCurrentUser.Object);
 
@@ -126,11 +144,63 @@ public class CreateAppointmentTests
     }
 
     [Fact]
+    public async Task Handler_DeberiaFallar_CuandoHorarioEstaBloqueadoPorAgenda()
+    {
+        // Arrange
+        var mockApptRepo = new Mock<IAppointmentRepository>();
+        var mockBizRepo = new Mock<IBusinessRepository>();
+        var mockScheduleBlockRepo = new Mock<IScheduleBlockRepository>();
+        var mockUow = new Mock<IUnitOfWork>();
+        var mockCurrentUser = new Mock<ICurrentUserService>();
+
+        var businessId = Guid.NewGuid();
+        mockCurrentUser.Setup(c => c.BusinessId).Returns(businessId);
+
+        var existingBusiness = new Business { Id = businessId, Name = "Barbería Estilo" };
+        mockBizRepo.Setup(b => b.GetByIdAsync(businessId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingBusiness);
+
+        // Simula conflicto con un bloqueo manual de agenda
+        mockScheduleBlockRepo.Setup(s => s.HasConflictAsync(
+            businessId,
+            It.IsAny<Guid?>(),
+            It.IsAny<DateTime>(),
+            It.IsAny<DateTime>(),
+            It.IsAny<long?>(),
+            It.IsAny<CancellationToken>())).ReturnsAsync(true);
+
+        var handler = new CreateAppointmentHandler(
+            mockApptRepo.Object,
+            mockBizRepo.Object,
+            mockScheduleBlockRepo.Object,
+            mockUow.Object,
+            mockCurrentUser.Object);
+
+        var command = new CreateAppointmentCommand
+        {
+            ClientName = "Carlos Mendoza",
+            StartTime = DateTime.UtcNow.AddHours(1),
+            EndTime = DateTime.UtcNow.AddHours(2),
+            AgreedTotal = 280m
+        };
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.Success.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.Contains("bloqueo de agenda"));
+        mockApptRepo.Verify(a => a.AddAsync(It.IsAny<Appointment>(), It.IsAny<CancellationToken>()), Times.Never);
+        mockUow.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task Handler_DeberiaFallar_CuandoTokenNoTieneBusinessId()
     {
         // Arrange
         var mockApptRepo = new Mock<IAppointmentRepository>();
         var mockBizRepo = new Mock<IBusinessRepository>();
+        var mockScheduleBlockRepo = new Mock<IScheduleBlockRepository>();
         var mockUow = new Mock<IUnitOfWork>();
         var mockCurrentUser = new Mock<ICurrentUserService>();
         mockCurrentUser.Setup(c => c.BusinessId).Returns((Guid?)null);
@@ -138,6 +208,7 @@ public class CreateAppointmentTests
         var handler = new CreateAppointmentHandler(
             mockApptRepo.Object,
             mockBizRepo.Object,
+            mockScheduleBlockRepo.Object,
             mockUow.Object,
             mockCurrentUser.Object);
 

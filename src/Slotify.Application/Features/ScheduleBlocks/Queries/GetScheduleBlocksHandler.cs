@@ -2,10 +2,15 @@ using MediatR;
 using Slotify.Application.Common.Interfaces;
 using Slotify.Application.Common.Models;
 using Slotify.Application.Features.ScheduleBlocks.DTOs;
+using Slotify.Domain.Entities;
 using Slotify.Domain.Interfaces;
 
 namespace Slotify.Application.Features.ScheduleBlocks.Queries;
 
+/// <summary>
+/// Handler para consultar los bloqueos de horario de la agenda.
+/// Relacionado con: US-008, US-022 y US-023.
+/// </summary>
 public class GetScheduleBlocksHandler(
     IScheduleBlockRepository scheduleBlockRepository,
     ICurrentUserService currentUserService)
@@ -23,17 +28,23 @@ public class GetScheduleBlocksHandler(
             return Result<IReadOnlyList<ScheduleBlockDto>>.Fail("El usuario autenticado no tiene un negocio asignado.");
         }
 
-        var blocks = await _scheduleBlockRepository.GetByDateRangeAsync(
-            businessId,
-            request.StartDate,
-            request.EndDate,
-            cancellationToken);
-
+        IReadOnlyList<ScheduleBlock> blocks;
         if (request.EmployeeId.HasValue)
         {
-            blocks = blocks
-                .Where(b => !b.EmployeeId.HasValue || b.EmployeeId == request.EmployeeId.Value)
-                .ToList();
+            blocks = await _scheduleBlockRepository.GetByEmployeeAndDateRangeAsync(
+                businessId,
+                request.EmployeeId.Value,
+                request.StartDate,
+                request.EndDate,
+                cancellationToken);
+        }
+        else
+        {
+            blocks = await _scheduleBlockRepository.GetByDateRangeAsync(
+                businessId,
+                request.StartDate,
+                request.EndDate,
+                cancellationToken);
         }
 
         var dtos = blocks.Select(b => new ScheduleBlockDto

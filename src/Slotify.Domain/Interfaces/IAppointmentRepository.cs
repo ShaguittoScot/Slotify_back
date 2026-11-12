@@ -4,7 +4,7 @@ using Slotify.Domain.Entities;
 
 /// <summary>
 /// Repositorio para citas/reservas.
-/// Relacionado con: US-003 (Calendario muestra citas existentes), US-022 (Aislamiento por negocio).
+/// Relacionado con: US-003 (Calendario muestra citas existentes), US-022 (Aislamiento por negocio) y US-023.
 /// </summary>
 public interface IAppointmentRepository : IRepository<Appointment>
 {
@@ -26,5 +26,16 @@ public interface IAppointmentRepository : IRepository<Appointment>
         Guid employeeId,
         DateTime startDate,
         DateTime endDate,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Valida si existe alguna cita confirmada activa que se solape con el intervalo indicado.
+    /// </summary>
+    Task<bool> HasActiveAppointmentConflictAsync(
+        Guid businessId,
+        Guid? employeeId,
+        DateTime startDate,
+        DateTime endDate,
+        Guid? excludeAppointmentId = null,
         CancellationToken cancellationToken = default);
 }
