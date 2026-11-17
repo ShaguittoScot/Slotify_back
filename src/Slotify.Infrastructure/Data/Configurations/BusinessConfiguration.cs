@@ -55,6 +55,10 @@ public class BusinessConfiguration : IEntityTypeConfiguration<Business>
             .HasColumnType("jsonb")
             .IsRequired(false);
 
+        builder.Property(x => x.OnboardingCompletedAt)
+            .HasColumnName("onboarding_completed_at")
+            .IsRequired(false);
+
         builder.Property(x => x.CreatedAt)
             .HasColumnName("fecha_creacion")
             .HasDefaultValueSql("CURRENT_TIMESTAMP");

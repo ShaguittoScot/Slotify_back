@@ -80,6 +80,7 @@ using (var scope = app.Services.CreateScope())
             db.Database,
             """
             ALTER TABLE negocios ADD COLUMN IF NOT EXISTS configuracion_formulario_personalizada JSONB;
+            ALTER TABLE negocios ADD COLUMN IF NOT EXISTS onboarding_completed_at TIMESTAMPTZ NULL;
             CREATE TABLE IF NOT EXISTS public.clientes_negocio (
                 id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
                 id_negocio UUID NOT NULL REFERENCES public.negocios(id) ON DELETE CASCADE,

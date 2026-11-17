@@ -38,6 +38,9 @@ public partial class Business : AuditableEntity
     /// <summary>Configuración personalizada del formulario e identidad de marca en JSONB (configuracion_formulario_personalizada).</summary>
     public string? CustomFormConfig { get; set; }
 
+    /// <summary>Indica la fecha y hora en que el negocio completó el proceso de onboarding (onboarding_completed_at).</summary>
+    public DateTime? OnboardingCompletedAt { get; set; }
+
     // ── Navegación ────────────────────────────────────────────────────────────
     /// <summary>Plantilla de sector (giro comercial) asociada.</summary>
     public SectorTemplate? SectorTemplate { get; set; }

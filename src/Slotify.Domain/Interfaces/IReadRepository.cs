@@ -1,4 +1,4 @@
-﻿namespace Slotify.Domain.Interfaces;
+namespace Slotify.Domain.Interfaces;
 
 /// <summary>
 /// Contrato base de solo lectura desacoplado del tipo de clave primaria (ISP).
