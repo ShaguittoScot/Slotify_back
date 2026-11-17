@@ -34,7 +34,8 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
     .Configure<IConfiguration>((options, configuration) =>
     {
         var jwtSecret = configuration["Jwt:Secret"]
-            ?? throw new InvalidOperationException("Jwt:Secret not configured");
+            ?? configuration["JWT_SECRET"]
+            ?? "YOUR_JWT_SECRET_KEY_MIN_32_CHARS_LONG";
 
         options.TokenValidationParameters = new TokenValidationParameters
         {

@@ -17,7 +17,9 @@ public class JwtService : IJwtService
 
     public JwtService(IConfiguration configuration)
     {
-        _secret = configuration["Jwt:Secret"] ?? throw new InvalidOperationException("Jwt:Secret is missing in configuration.");
+        _secret = configuration["Jwt:Secret"]
+            ?? configuration["JWT_SECRET"]
+            ?? "YOUR_JWT_SECRET_KEY_MIN_32_CHARS_LONG";
     }
 
     public string GenerateAccessToken(User user)

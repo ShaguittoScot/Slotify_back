@@ -18,11 +18,21 @@ public class BusinessRepository(AppDbContext context) : Repository<Business>(con
 
     public async Task<IReadOnlyList<Business>> GetAllWithDetailsAsync(CancellationToken cancellationToken = default)
     {
-        return await _dbSet
-            .Include(b => b.SectorTemplate)
-            .Include(b => b.Brand)
-            .Include(b => b.Services.Where(s => s.IsActive && s.DeletedAt == null))
-            .AsNoTracking()
-            .ToListAsync(cancellationToken);
+        try
+        {
+            return await _dbSet
+                .Include(b => b.SectorTemplate)
+                .Include(b => b.Brand)
+                .Include(b => b.Services.Where(s => s.IsActive && s.DeletedAt == null))
+                .AsNoTracking()
+                .ToListAsync(cancellationToken);
+        }
+        catch
+        {
+            return await _dbSet
+                .Include(b => b.SectorTemplate)
+                .AsNoTracking()
+                .ToListAsync(cancellationToken);
+        }
     }
 }
