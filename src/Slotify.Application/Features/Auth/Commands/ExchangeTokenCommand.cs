@@ -14,9 +14,11 @@ public record ExchangeTokenCommand(Guid UserId, string Email) : IRequest<Result<
 
 public class ExchangeTokenHandler(
     IUserRepository userRepository,
+    IBusinessRepository businessRepository,
     IJwtService jwtService) : IRequestHandler<ExchangeTokenCommand, Result<AuthResponse>>
 {
     private readonly IUserRepository _userRepository = userRepository;
+    private readonly IBusinessRepository _businessRepository = businessRepository;
     private readonly IJwtService _jwtService = jwtService;
 
     public async Task<Result<AuthResponse>> Handle(
@@ -25,17 +27,38 @@ public class ExchangeTokenHandler(
     {
         if (request.UserId == Guid.Empty || string.IsNullOrWhiteSpace(request.Email))
         {
-            return Result<AuthResponse>.Fail("Credenciales de sesión inválidas.");
+            return Result<AuthResponse>.Fail("Credenciales de sesión inválidas.", ErrorType.Validation);
         }
 
         var user = await _userRepository.GetByIdAsync(request.UserId, cancellationToken)
                 ?? await _userRepository.GetByEmailAsync(request.Email.Trim(), cancellationToken);
 
-        if (user == null || user.Id != request.UserId ||
-            !string.Equals(user.Email, request.Email.Trim(), StringComparison.OrdinalIgnoreCase))
+        if (user == null)
         {
-            return Result<AuthResponse>.Fail("El usuario aún no cuenta con un negocio sincronizado.");
+            return Result<AuthResponse>.Fail("El usuario aún no cuenta con un negocio sincronizado.", ErrorType.NotFound);
         }
+
+        // FASE 3: Verificación estricta de identificadores (Zero Trust)
+        // No mutar ni vincular automáticamente cuentas con UUID diferente.
+        if (user.Id != request.UserId)
+        {
+            return Result<AuthResponse>.Fail(
+                $"Discrepancia de identidad: el ID del proveedor de autenticación ({request.UserId}) no coincide con el registrado en el sistema ({user.Id}) para este correo.",
+                ErrorType.Conflict);
+        }
+
+        if (!string.Equals(user.Email, request.Email.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            return Result<AuthResponse>.Fail("El correo electrónico no coincide con el usuario autenticado.", ErrorType.Forbidden);
+        }
+
+        if (user.BusinessId == Guid.Empty)
+        {
+            return Result<AuthResponse>.Fail("Inconsistencia de datos: el usuario no tiene un negocio asignado.", ErrorType.Conflict);
+        }
+
+        var business = await _businessRepository.GetByIdAsync(user.BusinessId, cancellationToken);
+        var isOnboardingCompleted = business?.OnboardingCompletedAt.HasValue ?? false;
 
         var accessToken = _jwtService.GenerateAccessToken(user);
         var refreshToken = _jwtService.GenerateRefreshToken();
@@ -53,7 +76,8 @@ public class ExchangeTokenHandler(
                 FullName = user.FullName,
                 Email = user.Email,
                 Role = user.Role.ToString(),
-                BusinessId = user.BusinessId
+                BusinessId = user.BusinessId,
+                IsOnboardingCompleted = isOnboardingCompleted
             }
         });
     }

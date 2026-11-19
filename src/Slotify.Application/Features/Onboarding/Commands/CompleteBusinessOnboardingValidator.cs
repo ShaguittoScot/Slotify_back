@@ -11,18 +11,6 @@ public class CompleteBusinessOnboardingValidator
         ISectorTemplateRepository sectorTemplateRepository)
     {
         // Datos del propietario
-        RuleFor(x => x.Id)
-            .NotEmpty()
-            .WithMessage("El ID de Supabase es requerido.");
-
-        RuleFor(x => x.Email)
-            .NotEmpty()
-            .WithMessage("El correo es requerido.")
-            .EmailAddress()
-            .WithMessage("El formato del correo no es vÃ¡lido.")
-            .MaximumLength(150)
-            .WithMessage("El correo no puede exceder 150 caracteres.");
-
         RuleFor(x => x.FirstName)
             .NotEmpty()
             .WithMessage("El nombre del propietario es requerido.")

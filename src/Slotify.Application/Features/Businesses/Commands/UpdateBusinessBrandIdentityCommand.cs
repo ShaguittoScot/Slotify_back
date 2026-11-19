@@ -48,7 +48,7 @@ public class UpdateBusinessBrandIdentityValidator : AbstractValidator<UpdateBusi
 public class UpdateBusinessBrandIdentityCommandHandler(
     IBusinessRepository businessRepository,
     IUnitOfWork unitOfWork,
-    ICurrentUserService? currentUserService = null)
+    ICurrentUserService currentUserService)
     : IRequestHandler<UpdateBusinessBrandIdentityCommand, Result<BookingFormConfigDto>>
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -59,13 +59,19 @@ public class UpdateBusinessBrandIdentityCommandHandler(
 
     private readonly IBusinessRepository _businessRepository = businessRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
-    private readonly ICurrentUserService? _currentUserService = currentUserService;
+    private readonly ICurrentUserService _currentUserService = currentUserService;
 
     public async Task<Result<BookingFormConfigDto>> Handle(
         UpdateBusinessBrandIdentityCommand request,
         CancellationToken cancellationToken)
     {
-        if (_currentUserService is not null && !BelongsToAuthenticatedBusiness(request.BusinessId))
+        if (!_currentUserService.IsAuthenticated || _currentUserService.UserId is null || _currentUserService.UserId == Guid.Empty)
+            return Result<BookingFormConfigDto>.Fail("No se pudo determinar la identidad del usuario autenticado.", ErrorType.Forbidden);
+
+        if (_currentUserService.BusinessId is not { } tokenBusinessId || tokenBusinessId == Guid.Empty)
+            return Result<BookingFormConfigDto>.Fail("No se pudo determinar el negocio asociado a la sesión activa.", ErrorType.Forbidden);
+
+        if (tokenBusinessId != request.BusinessId)
             return Result<BookingFormConfigDto>.Fail("No tienes permisos para modificar otro negocio.", ErrorType.Forbidden);
 
         if (!Business.IsValidCorporateHexColor(request.AccentColor))
@@ -132,10 +138,4 @@ public class UpdateBusinessBrandIdentityCommandHandler(
 
         return Result<BookingFormConfigDto>.Ok(updatedConfig, "Identidad de marca actualizada correctamente.");
     }
-
-    private bool BelongsToAuthenticatedBusiness(Guid targetBusinessId) =>
-        targetBusinessId != Guid.Empty
-        && _currentUserService?.BusinessId is { } tokenBusinessId
-        && tokenBusinessId != Guid.Empty
-        && tokenBusinessId == targetBusinessId;
 }

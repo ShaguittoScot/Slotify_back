@@ -67,7 +67,7 @@ public class UpdateBusinessFormConfigValidator : AbstractValidator<UpdateBusines
 public class UpdateBusinessFormConfigCommandHandler(
     IBusinessRepository repository,
     IUnitOfWork unitOfWork,
-    ICurrentUserService? currentUserService = null)
+    ICurrentUserService currentUserService)
     : IRequestHandler<UpdateBusinessFormConfigCommand, Result<bool>>
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -81,13 +81,19 @@ public class UpdateBusinessFormConfigCommandHandler(
 
     private readonly IBusinessRepository _repository = repository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
-    private readonly ICurrentUserService? _currentUserService = currentUserService;
+    private readonly ICurrentUserService _currentUserService = currentUserService;
 
     public async Task<Result<bool>> Handle(
         UpdateBusinessFormConfigCommand request,
         CancellationToken cancellationToken)
     {
-        if (_currentUserService is not null && !BelongsToAuthenticatedBusiness(request.BusinessId))
+        if (!_currentUserService.IsAuthenticated || _currentUserService.UserId is null || _currentUserService.UserId == Guid.Empty)
+            return Result<bool>.Fail("No se pudo determinar la identidad del usuario autenticado.", ErrorType.Forbidden);
+
+        if (_currentUserService.BusinessId is not { } tokenBusinessId || tokenBusinessId == Guid.Empty)
+            return Result<bool>.Fail("No se pudo determinar el negocio asociado a la sesión activa.", ErrorType.Forbidden);
+
+        if (tokenBusinessId != request.BusinessId)
             return Result<bool>.Fail("No tienes permisos para modificar otro negocio.", ErrorType.Forbidden);
 
         var business = await _repository.GetByIdAsync(request.BusinessId, cancellationToken);
@@ -153,10 +159,4 @@ public class UpdateBusinessFormConfigCommandHandler(
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         return Result<bool>.Ok(true);
     }
-
-    private bool BelongsToAuthenticatedBusiness(Guid targetBusinessId) =>
-        targetBusinessId != Guid.Empty
-        && _currentUserService?.BusinessId is { } tokenBusinessId
-        && tokenBusinessId != Guid.Empty
-        && tokenBusinessId == targetBusinessId;
 }

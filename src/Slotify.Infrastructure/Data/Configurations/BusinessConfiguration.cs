@@ -49,6 +49,61 @@ public class BusinessConfiguration : IEntityTypeConfiguration<Business>
             .IsRequired(false);
 
         builder
+            .Property(x => x.Description)
+            .HasColumnName("descripcion")
+            .HasMaxLength(500)
+            .IsRequired(false);
+
+        builder
+            .Property(x => x.Street)
+            .HasColumnName("calle")
+            .HasMaxLength(150)
+            .IsRequired(false);
+
+        builder
+            .Property(x => x.ExteriorNumber)
+            .HasColumnName("numero_exterior")
+            .HasMaxLength(20)
+            .IsRequired(false);
+
+        builder
+            .Property(x => x.InteriorNumber)
+            .HasColumnName("numero_interior")
+            .HasMaxLength(20)
+            .IsRequired(false);
+
+        builder
+            .Property(x => x.Neighborhood)
+            .HasColumnName("colonia")
+            .HasMaxLength(100)
+            .IsRequired(false);
+
+        builder
+            .Property(x => x.City)
+            .HasColumnName("ciudad")
+            .HasMaxLength(100)
+            .IsRequired(false);
+
+        builder
+            .Property(x => x.State)
+            .HasColumnName("estado")
+            .HasMaxLength(100)
+            .IsRequired(false);
+
+        builder
+            .Property(x => x.PostalCode)
+            .HasColumnName("codigo_postal")
+            .HasMaxLength(10)
+            .IsRequired(false);
+
+        builder
+            .Property(x => x.CountryCode)
+            .HasColumnName("codigo_pais")
+            .HasMaxLength(2)
+            .HasDefaultValue("MX")
+            .IsRequired(false);
+
+        builder
             .Property(x => x.OnboardingCompletedAt)
             .HasColumnName("onboarding_completed_at")
             .IsRequired(false);

@@ -19,6 +19,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Client> Clients => Set<Client>();
     public DbSet<BusinessBrand> BusinessBrands => Set<BusinessBrand>();
     public DbSet<Service> Services => Set<Service>();
+    public DbSet<UserBusiness> UserBusinesses => Set<UserBusiness>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

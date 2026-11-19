@@ -18,14 +18,14 @@ Este documento describe detalladamente la **arquitectura del backend**, el **rec
 
 ##  0. Aspectos Generales de la Arquitectura
 
-El backend de **Slotify** está construido sobre **.NET 8** adoptando el paradigma de **Clean Architecture** (Arquitectura Limpia) y el patrón **CQRS** (Command Query Responsibility Segregation) desacoplado mediante **MediatR**.
+El backend de **Slotify** está construido sobre **.NET 9** adoptando el paradigma de **Clean Architecture** (Arquitectura Limpia) y el patrón **CQRS** (Command Query Responsibility Segregation) desacoplado mediante **MediatR**.
 
 ### Las 4 Capas de la Solución
 
 ```mermaid
 graph TD
     subgraph CapaPresentacion ["1. Capa de Presentación (Slotify.API)"]
-        Controllers["Controllers HTTP (ASP.NET Core)"]
+        Controllers["Controllers HTTP (ASP.NET Core 9)"]
         Middlewares["Middlewares (Exception Handling, Auth)"]
     end
 
@@ -37,7 +37,7 @@ graph TD
     end
 
     subgraph CapaDominio ["3. Capa de Dominio (Slotify.Domain)"]
-        Entities["Entidades de Negocio (Client, Business, Appointment)"]
+        Entities["Entidades de Negocio ([[Entidad Client]], [[Entidad Business]], [[Entidad Appointment]])"]
         Interfaces["Interfaces de Repositorios y Unit of Work"]
         Enums["Enums y Value Objects"]
     end
@@ -54,6 +54,7 @@ graph TD
     Pipeline --> Handlers
     Handlers --> Interfaces
     Repositories -.->|Implementa| Interfaces
+    Handlers --> Repositories
     Handlers --> AppDbContext
     Repositories --> AppDbContext
     AppDbContext --> Postgres
@@ -178,7 +179,7 @@ sequenceDiagram
     Front->>SupaAuth: 2. auth.signUp(email, password)
     SupaAuth-->>Front: 3. Session + UUID (auth.users.id)
 
-    Note over Front,API: Inicio del Recorrido en Backend (.NET 8)
+    Note over Front,API: Inicio del Recorrido en Backend (.NET 9)
     Front->>API: 4. POST /api/auth/sync-client (RegisterClientCommand JSON)
     API->>Pipeline: 5. _mediator.Send(command, ct)
     
@@ -256,7 +257,7 @@ public async Task<IActionResult> SyncClient(
 * **Lógica de negocio:**
   1. Consulta `IClientRepository.GetBySupabaseIdAsync()`. Si lo halla, retorna el DTO del cliente existente.
   2. Si el email ya existía pero con `SupabaseId == null`, actualiza el ID y persiste.
-  3. Si no existe, normaliza nombre y apellido e instancia una nueva entidad [[Client]] asignando `Id = request.Id` (garantizando paridad 1:1 con `auth.users.id`).
+  3. Si no existe, normaliza nombre y apellido e instancia una nueva entidad [[Entidad Client]] asignando `Id = request.Id` (garantizando paridad 1:1 con `auth.users.id`).
   4. Llama a `_clientRepository.AddAsync(client)` y `_unitOfWork.SaveChangesAsync()`.
 
 ### Paso 4: Capa de Persistencia (`Slotify.Infrastructure`)

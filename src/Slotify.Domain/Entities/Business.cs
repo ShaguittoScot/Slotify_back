@@ -12,7 +12,8 @@ public partial class Business : AuditableEntity
 {
     private static readonly Regex HexColorRegex = new(
         @"^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$",
-        RegexOptions.Compiled);
+        RegexOptions.Compiled
+    );
 
     /// <summary>Slug único para URL pública (slug).</summary>
     public string Slug { get; set; } = string.Empty;
@@ -38,6 +39,35 @@ public partial class Business : AuditableEntity
     /// <summary>Configuración personalizada del formulario e identidad de marca en JSONB (configuracion_formulario_personalizada).</summary>
     public string? CustomFormConfig { get; set; }
 
+    /// <summary>Descripción comercial del establecimiento (descripcion).</summary>
+    public string? Description { get; set; }
+
+    // ── Ubicación Física (Establecimiento Único) ───────────────
+
+    /// <summary>Calle de la ubicación física (calle).</summary>
+    public string? Street { get; set; }
+
+    /// <summary>Número exterior del establecimiento (numero_exterior).</summary>
+    public string? ExteriorNumber { get; set; }
+
+    /// <summary>Número interior del establecimiento (numero_interior).</summary>
+    public string? InteriorNumber { get; set; }
+
+    /// <summary>Colonia o barrio del establecimiento (colonia).</summary>
+    public string? Neighborhood { get; set; }
+
+    /// <summary>Ciudad o municipio del establecimiento (ciudad).</summary>
+    public string? City { get; set; }
+
+    /// <summary>Estado o provincia del establecimiento (estado).</summary>
+    public string? State { get; set; }
+
+    /// <summary>Código postal del establecimiento (codigo_postal).</summary>
+    public string? PostalCode { get; set; }
+
+    /// <summary>Código ISO de país (codigo_pais). Default: "MX"</summary>
+    public string? CountryCode { get; set; } = "MX";
+
     // ── Navegación ────────────────────────────────────────────────────────────
     /// <summary>Indica si el negocio ha completado el proceso de onboarding (onboarding_completado).</summary>
     public DateTime? OnboardingCompletedAt { get; set; }
@@ -46,8 +76,11 @@ public partial class Business : AuditableEntity
     /// <summary>Plantilla de sector (giro comercial) asociada.</summary>
     public SectorTemplate? SectorTemplate { get; set; }
 
-    /// <summary>Usuarios del negocio.</summary>
+    /// <summary>Usuarios del negocio (relación legacy preservada para compatibilidad).</summary>
     public ICollection<User> Users { get; set; } = [];
+
+    /// <summary>Vinculaciones del negocio con usuarios (relación N:M).</summary>
+    public ICollection<UserBusiness> UserBusinesses { get; set; } = [];
 
     /// <summary>Identidad de marca y personalización visual.</summary>
     public BusinessBrand? Brand { get; set; }

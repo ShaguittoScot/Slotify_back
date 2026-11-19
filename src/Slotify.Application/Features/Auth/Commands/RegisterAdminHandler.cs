@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using Slotify.Application.Common.Interfaces;
 using Slotify.Application.Common.Models;
 using Slotify.Application.Features.Auth.DTOs;
@@ -24,13 +24,13 @@ public class RegisterAdminHandler(
         CancellationToken cancellationToken)
     {
         if (await _userRepository.EmailExistsAsync(request.Email, cancellationToken))
-            return Result<AuthUserDto>.Fail("El correo electrónico ya está registrado.");
+            return Result<AuthUserDto>.Fail("El correo electrónico ya está registrado.", ErrorType.Conflict);
 
         // Fix #2 (SRP): La lógica de generación del slug pertenece al dominio Business,
         // no al handler. Cualquier cambio en la regla del slug solo requiere editar Business.cs.
         var businessSlug = Business.GenerateSlug(request.BusinessName);
         if (await _businessRepository.SlugExistsAsync(businessSlug, cancellationToken))
-            return Result<AuthUserDto>.Fail("El nombre del negocio ya está en uso.");
+            return Result<AuthUserDto>.Fail("El nombre del negocio ya está en uso.", ErrorType.Conflict);
 
         var business = new Business
         {
@@ -61,6 +61,21 @@ public class RegisterAdminHandler(
             Business = business
         };
 
+        var userBusiness = new UserBusiness
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            BusinessId = business.Id,
+            Role = UserRole.Owner,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+            User = user,
+            Business = business
+        };
+
+        user.UserBusinesses.Add(userBusiness);
+        business.UserBusinesses.Add(userBusiness);
+
         await _businessRepository.AddAsync(business, cancellationToken);
         await _userRepository.AddAsync(user, cancellationToken);
 
@@ -80,6 +95,7 @@ public class RegisterAdminHandler(
             Email = user.Email,
             Role = user.Role.ToString(),
             BusinessId = business.Id,
+            IsOnboardingCompleted = false,
             AccessToken = accessToken,
             RefreshToken = refreshToken
         });

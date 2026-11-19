@@ -74,4 +74,4 @@ sequenceDiagram
 
 ---
 
-> [[Dashboard|⬅️ Volver al Dashboard]]
+> [[Indice General|⬅️ Volver al Índice General]]

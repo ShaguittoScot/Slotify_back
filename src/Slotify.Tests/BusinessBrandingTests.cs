@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Moq;
+using Slotify.Application.Common.Interfaces;
 using Slotify.Application.Features.Businesses.Commands;
 using Slotify.Application.Features.Businesses.Queries;
 using Slotify.Domain.Entities;
@@ -24,11 +25,15 @@ public class BusinessBrandingTests
 
         var mockRepo = new Mock<IBusinessRepository>();
         var mockUow = new Mock<IUnitOfWork>();
+        var mockCurrentUserService = new Mock<ICurrentUserService>();
+        mockCurrentUserService.Setup(s => s.IsAuthenticated).Returns(true);
+        mockCurrentUserService.Setup(s => s.UserId).Returns(Guid.NewGuid());
+        mockCurrentUserService.Setup(s => s.BusinessId).Returns(businessId);
 
         mockRepo.Setup(r => r.GetByIdAsync(businessId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(business);
 
-        var handler = new UpdateBusinessBrandIdentityCommandHandler(mockRepo.Object, mockUow.Object);
+        var handler = new UpdateBusinessBrandIdentityCommandHandler(mockRepo.Object, mockUow.Object, mockCurrentUserService.Object);
         var command = new UpdateBusinessBrandIdentityCommand(
             businessId,
             "https://cdn.slotify.app/logos/barberia-capital.png",
@@ -55,12 +60,18 @@ public class BusinessBrandingTests
     public async Task UpdateBusinessBrandIdentity_InvalidHexColor_ReturnsFailure()
     {
         // Arrange
+        var businessId = Guid.NewGuid();
         var mockRepo = new Mock<IBusinessRepository>();
         var mockUow = new Mock<IUnitOfWork>();
-        var handler = new UpdateBusinessBrandIdentityCommandHandler(mockRepo.Object, mockUow.Object);
+        var mockCurrentUserService = new Mock<ICurrentUserService>();
+        mockCurrentUserService.Setup(s => s.IsAuthenticated).Returns(true);
+        mockCurrentUserService.Setup(s => s.UserId).Returns(Guid.NewGuid());
+        mockCurrentUserService.Setup(s => s.BusinessId).Returns(businessId);
+
+        var handler = new UpdateBusinessBrandIdentityCommandHandler(mockRepo.Object, mockUow.Object, mockCurrentUserService.Object);
 
         var command = new UpdateBusinessBrandIdentityCommand(
-            Guid.NewGuid(),
+            businessId,
             "https://cdn.slotify.app/logo.png",
             "NOT-A-HEX-COLOR",
             "#8B5CF6");

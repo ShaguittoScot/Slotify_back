@@ -303,6 +303,56 @@ public class ProtectedEndpointsTests
     }
 
     [Fact]
+    public async Task GetBusinessBySlug_SinToken_EsPublicoYRetorna200Ok()
+    {
+        // ARRANGE
+        var bizRepoMock = new Mock<IBusinessRepository>();
+        bizRepoMock
+            .Setup(b => b.GetBySlugWithDetailsAsync("barberia-elite", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Business
+            {
+                Id = Guid.NewGuid(),
+                Name = "Barbería Elite",
+                Slug = "barberia-elite",
+                OnboardingCompletedAt = DateTime.UtcNow
+            });
+
+        using var factory = CreateTestFactory(bizRepoMock: bizRepoMock);
+        using var client = factory.CreateClient();
+
+        // ACT (sin header Authorization)
+        var response = await client.GetAsync("/api/businesses/barberia-elite");
+
+        // ASSERT
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var content = await response.Content.ReadAsStringAsync();
+        content.Should().Contain("Barbería Elite");
+        using var jsonDoc = System.Text.Json.JsonDocument.Parse(content);
+        jsonDoc.RootElement.TryGetProperty("name", out var nameProp).Should().BeTrue();
+        nameProp.GetString().Should().Be("Barbería Elite");
+        jsonDoc.RootElement.TryGetProperty("data", out _).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GetBusinessBySlug_SlugInexistente_Retorna404NotFound()
+    {
+        // ARRANGE
+        var bizRepoMock = new Mock<IBusinessRepository>();
+        bizRepoMock
+            .Setup(b => b.GetBySlugWithDetailsAsync("no-existe", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Business?)null);
+
+        using var factory = CreateTestFactory(bizRepoMock: bizRepoMock);
+        using var client = factory.CreateClient();
+
+        // ACT
+        var response = await client.GetAsync("/api/businesses/no-existe");
+
+        // ASSERT
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
     public async Task PutBranding_ConTokenDeOtroNegocio_Retorna403Forbidden()
     {
         // ARRANGE

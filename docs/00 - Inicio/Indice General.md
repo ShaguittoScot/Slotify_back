@@ -15,7 +15,7 @@ tags:
 
 # 📚 Slotify Backend - Knowledge Hub (Índice General)
 
-Bienvenido a la base de conocimiento interactiva y centro de documentación técnica de **Slotify Backend (.NET 8 / PostgreSQL)**.
+Bienvenido a la base de conocimiento interactiva y centro de documentación técnica de **Slotify Backend (.NET 9 / PostgreSQL)**.
 
 > [!tip] Navegación Interactiva en Obsidian
 > Presiona `Ctrl + G` para abrir la **Vista de Grafo** y explorar cómo se conectan las historias de usuario, las capas de Clean Architecture, los flujos de información, las entidades del dominio y la persistencia relacional.
@@ -24,21 +24,27 @@ Bienvenido a la base de conocimiento interactiva y centro de documentación téc
 
 ## 🧭 Mapa de Navegación del Sistema
 
-### 📋 1. [[01 - Requerimientos e Historias de Usuario|01. Requerimientos e Historias de Usuario (Scrum)]]
+### 📋 1. [[Indice de Historias de Usuario|01. Requerimientos e Historias de Usuario (Scrum)]]
 * [[Indice de Historias de Usuario]]: Directorio completo de User Stories y Criterios Gherkin.
-* [[HISTORIAS_DE_USUARIO_Y_FLUJO_INTEGRAL]]: Visión integral del sistema y escenarios de prueba.
+  * [[US-000 - Autenticacion y Registro de Administrador|US-000: Autenticación y Registro de Administrador]]
   * [[US-001 - Registro y Autenticacion Multi-Inquilino y Clientes|US-001: Registro y Autenticación Multi-Inquilino]]
   * [[US-002 - Plantillas por Sector y Configuracion de Negocio|US-002: Plantillas por Sector]]
   * [[US-003 - Calendario Tactil Multiformato y Consulta de Citas|US-003: Calendario Táctil y Citas]]
   * [[US-004 - Dashboard Dinamico y Manejo de Estados Vacios|US-004: Dashboard y Estado Vacío]]
   * [[US-005 - Micro-Onboarding para Consumidor Final|US-005: Micro-Onboarding Consumidor]]
+  * [[US-006 - Selector Inicial de Giro Comercial|US-006: Selector de Giro Comercial]]
   * [[US-008 - Bloqueo Manual de Horarios y Disponibilidad|US-008: Bloqueo Manual de Horarios]]
+  * [[US-011 - Agendamiento y Creacion de Citas|US-011: Agendamiento y Creación de Citas]]
+  * [[US-013 - Cambio de Plantilla en Negocio Existente|US-013: Cambio de Giro Comercial]]
+  * [[US-017 - Onboarding Transaccional B2B y Formulario Dinamico|US-017: Onboarding Transaccional B2B]]
+  * [[US-022 - Aislamiento Multi-Inquilino por Token JWT|US-022: Aislamiento Multi-Inquilino (JWT)]]
 
 ---
 
-### 🏛️ 2. [[02 - Arquitectura y Capas|02. Arquitectura y Capas del Sistema]]
+### 🏛️ 2. Arquitectura y Capas del Sistema
 * [[Clean Architecture]]: Estructura de capas, patrón CQRS y principios arquitectónicos.
 * [[Modulo API]]: Controladores HTTP RESTful, Swagger/OpenAPI, inyección de dependencias y middlewares.
+* [[Contratos de API REST]]: Catálogo exhaustivo y especificación técnica de contratos HTTP RESTful y DTOs.
 * [[Modulo Application]]: Casos de uso (CQRS con MediatR), Comandos, Queries, DTOs y validaciones.
 * [[Modulo Domain]]: Núcleo de entidades de negocio, interfaces de repositorios y reglas de dominio puras.
 * [[Modulo Infrastructure]]: Entity Framework Core 9 (Npgsql), configuración Fluent API, Unit of Work y repositorios.
@@ -46,7 +52,7 @@ Bienvenido a la base de conocimiento interactiva y centro de documentación téc
 
 ---
 
-### 🌊 3. [[03 - Flujos de Informacion|03. Flujos de Información (Ciclo de Vida End-to-End)]]
+### 🌊 3. Flujos de Información (Ciclo de Vida End-to-End)
 * [[Flujo General de Peticion]]: Recorrido universal y ciclo de vida de una petición HTTP desde la app hasta PostgreSQL.
 * [[Flujo de Registro y Sync Cliente Consumidor]]: Sincronización B2C para clientes finales y micro-onboarding.
 * [[Flujo de Registro y Sync Auth]]: Sincronización B2B para administradores y creación de negocios.
@@ -55,8 +61,9 @@ Bienvenido a la base de conocimiento interactiva y centro de documentación téc
 
 ---
 
-### 📦 4. [[04 - Modulos Funcionales (Features)|04. Módulos Funcionales (Features)]]
+### 📦 4. Módulos Funcionales (Features)
 * [[Feature Auth]]: Autenticación y sincronización de usuarios (`DUENO` y `CLIENTE`).
+* [[Feature Onboarding]]: Asistente transaccional B2B de alta comercial en 5 pasos.
 * [[Feature Businesses]]: Catálogo público, cambio de plantillas de rubro y formularios dinámicos JSON.
 * [[Feature ScheduleBlocks]]: Gestión y bloqueo de franjas horarias no disponibles.
 * [[Feature Calendar]]: Consultas de disponibilidad de turnos en tiempo real y agenda táctil.
@@ -65,10 +72,12 @@ Bienvenido a la base de conocimiento interactiva y centro de documentación téc
 
 ---
 
-### 🧩 5. [[05 - Entidades y Dominio|05. Entidades y Modelo de Dominio]]
+### 🧩 5. Entidades y Modelo de Dominio
 * [[Entidad User]]: Usuarios del sistema, roles (`DUENO`, `EMPLEADO`) y credenciales.
 * [[Entidad Client]]: Clientes consumidores finales (B2C) asociados a la tabla `clientes`.
 * [[Entidad Business]]: Negocios/inquilinos con configuración y plantillas de sector.
+* [[Entidad BusinessBrand]]: Identidad visual, logotipo y colores corporativos (1:1 con Business).
+* [[Entidad Service]]: Catálogo de servicios comerciales, duraciones, precios y tiempos de colchón.
 * [[Entidad Appointment]]: Citas y reservaciones de servicios.
 * [[Entidad ScheduleBlock]]: Bloqueos manuales de horarios y excepciones.
 * [[Entidad AvailabilitySchedule]]: Esquemas de horarios de atención semanales.
@@ -76,9 +85,9 @@ Bienvenido a la base de conocimiento interactiva y centro de documentación téc
 
 ---
 
-### 🗄️ 6. [[06 - Acceso a Datos y Persistencia|06. Persistencia y Base de Datos]]
+### 🗄️ 6. Persistencia y Base de Datos
 * [[AppDbContext]]: DbContext central de Entity Framework Core 9.
-* [[Unit of Work]]: Patrón transaccional para operaciones atómicas.
+* [[06 - Acceso a Datos y Persistencia/Unit of Work|Unit of Work]]: Patrón transaccional para operaciones atómicas.
 * [[Repositorios]]: Abstracciones e implementaciones de acceso a datos.
 * [[Supabase PostgreSQL]]: Base de datos relacional en la nube.
 * [[Modelo de Datos]]: Diagramas ERD y descripción de tablas.
@@ -86,7 +95,7 @@ Bienvenido a la base de conocimiento interactiva y centro de documentación téc
 
 ---
 
-### 🚀 7. [[07 - Guias y Despliegue|07. Guías y Despliegue]]
+### 🚀 7. Guías y Despliegue
 * [[Despliegue en Render]]: Guía para publicar el backend Web API .NET 8 en Render con Docker.
 
 ---
@@ -101,7 +110,7 @@ graph TD
     
     App --> Features["📦 Features ([[Feature Auth]], [[Feature Businesses]], [[Feature ScheduleBlocks]], [[Feature Calendar]])"]
     Features --> Domain["💎 [[Modulo Domain]] (Entidades e Interfaces)"]
-    Features --> UOW["🗄️ [[Unit of Work]]"]
+    Features --> UOW["🗄️ [[02 - Arquitectura y Capas/Unit of Work|Unit of Work]]"]
     
     UOW --> Repos["📂 [[Repositorios]]"]
     Repos --> DbContext["⚡ [[AppDbContext]]"]

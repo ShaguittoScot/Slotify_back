@@ -13,7 +13,7 @@ tags:
 
 # 👤 Flujo de Registro y Sincronización de Cliente Consumidor (B2C)
 
-Este documento detalla el ciclo de vida completo del registro y sincronización de un **Cliente Consumidor Final** (rol `CLIENTE`) entre la aplicación móvil/web (**React Native / Expo**), el servicio de autenticación (**Supabase Auth**) y la base de datos relacional de **Slotify (.NET 8 Web API / PostgreSQL)**, describiendo el recorrido arquitectónico paso a paso.
+Este documento detalla el ciclo de vida completo del registro y sincronización de un **Cliente Consumidor Final** (rol `CLIENTE`) entre la aplicación móvil/web (**React Native / Expo**), el servicio de autenticación (**Supabase Auth**) y la base de datos relacional de **Slotify (.NET 9 Web API / PostgreSQL)**, describiendo el recorrido arquitectónico paso a paso.
 
 ---
 
@@ -22,8 +22,8 @@ Este documento detalla el ciclo de vida completo del registro y sincronización 
 La arquitectura desacoplada de Slotify procesa este caso de uso a través de sus cuatro capas:
 
 1. **Presentación (`Slotify.API`):** Expone el endpoint `POST /api/auth/sync-client` mediante `AuthController.cs`.
-2. **Aplicación (`Slotify.Application`):** Orquesta el comando [[RegisterClientCommand]] a través del `RegisterClientHandler`, con validación previa de [[RegisterClientValidator]].
-3. **Dominio (`Slotify.Domain`):** Modela la entidad [[Client]] y define las abstracciones de repositorio (`IClientRepository`).
+2. **Aplicación (`Slotify.Application`):** Orquesta el comando `RegisterClientCommand` a través del `RegisterClientHandler`, con validación previa de `RegisterClientValidator` en el [[Pipeline Behaviors]].
+3. **Dominio (`Slotify.Domain`):** Modela la entidad [[Entidad Client]] y define las abstracciones de repositorio (`IClientRepository`).
 4. **Infraestructura (`Slotify.Infrastructure`):** Realiza la persistencia relacional con `AppDbContext`, `ClientConfiguration` y `ClientRepository` sobre la tabla `clientes` en **PostgreSQL**.
 
 ---
@@ -48,7 +48,7 @@ sequenceDiagram
     actor Cliente as 👤 Cliente Consumidor
     participant App as 📱 Frontend (RegisterClientScreen)
     participant SupaAuth as 🔐 Supabase Auth (auth.users)
-    participant API as 🌐 AuthController (.NET 8)
+    participant API as 🌐 AuthController (.NET 9)
     participant Pipeline as 🛡️ ValidationBehavior (FluentValidation)
     participant Handler as ⚙️ RegisterClientHandler (MediatR)
     participant Repo as 🗄️ ClientRepository
