@@ -23,6 +23,18 @@ public class RegisterAdminHandler(
         RegisterAdminCommand request,
         CancellationToken cancellationToken)
     {
+        var existing = await _userRepository.GetByIdAsync(request.Id, cancellationToken);
+        if (existing is not null)
+        {
+            if (!existing.IsActive || existing.BusinessId == Guid.Empty ||
+                !string.Equals(existing.Email, request.Email.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                return Result<AuthUserDto>.Fail("No se pudo vincular esta cuenta con un negocio activo.", ErrorType.Forbidden);
+            }
+            var existingBusiness = await _businessRepository.GetByIdAsync(existing.BusinessId, cancellationToken);
+            return BuildResponse(existing, existingBusiness?.OnboardingCompletedAt != null, existingBusiness?.Name);
+        }
+
         if (await _userRepository.EmailExistsAsync(request.Email, cancellationToken))
             return Result<AuthUserDto>.Fail("El correo electrónico ya está registrado.", ErrorType.Conflict);
 
@@ -83,6 +95,11 @@ public class RegisterAdminHandler(
         // Los repositorios ya no llaman a SaveChanges internamente.
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
+        return BuildResponse(user, false, business.Name);
+    }
+
+    private Result<AuthUserDto> BuildResponse(User user, bool isOnboardingCompleted, string? businessName)
+    {
         var accessToken = _jwtService.GenerateAccessToken(user);
         var refreshToken = _jwtService.GenerateRefreshToken();
 
@@ -94,8 +111,9 @@ public class RegisterAdminHandler(
             FullName = user.FullName,
             Email = user.Email,
             Role = user.Role.ToString(),
-            BusinessId = business.Id,
-            IsOnboardingCompleted = false,
+            BusinessId = user.BusinessId,
+            BusinessName = businessName,
+            IsOnboardingCompleted = isOnboardingCompleted,
             AccessToken = accessToken,
             RefreshToken = refreshToken
         });

@@ -39,6 +39,9 @@ public partial class Business : AuditableEntity
     /// <summary>Configuración personalizada del formulario e identidad de marca en JSONB (configuracion_formulario_personalizada).</summary>
     public string? CustomFormConfig { get; set; }
 
+    /// <summary>Indica la fecha y hora en que el negocio completó el proceso de onboarding (onboarding_completed_at).</summary>
+    public DateTime? OnboardingCompletedAt { get; set; }
+
     /// <summary>Descripción comercial del establecimiento (descripcion).</summary>
     public string? Description { get; set; }
 
@@ -69,10 +72,6 @@ public partial class Business : AuditableEntity
     public string? CountryCode { get; set; } = "MX";
 
     // ── Navegación ────────────────────────────────────────────────────────────
-    /// <summary>Indica si el negocio ha completado el proceso de onboarding (onboarding_completado).</summary>
-    public DateTime? OnboardingCompletedAt { get; set; }
-
-    // ── Navegación ──────────────────────────────────────────
     /// <summary>Plantilla de sector (giro comercial) asociada.</summary>
     public SectorTemplate? SectorTemplate { get; set; }
 

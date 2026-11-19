@@ -1,78 +1,51 @@
 using MediatR;
 using Slotify.Application.Common.Interfaces;
 using Slotify.Application.Common.Models;
+using Slotify.Application.Features.Calendar;
 using Slotify.Domain.Entities;
-using Slotify.Domain.Enums;
 using Slotify.Domain.Interfaces;
 
 namespace Slotify.Application.Features.ScheduleBlocks.Commands;
 
-/// <summary>
-/// Handler para crear un bloqueo de agenda.
-/// Relacionado con: US-008 (Bloqueo Manual de Horarios No Disponibles), US-022 (Negocio del token).
-/// </summary>
 public class CreateScheduleBlockHandler(
     IScheduleBlockRepository scheduleBlockRepository,
-    IAppointmentRepository appointmentRepository,
-    ICurrentUserService currentUserService)
-    : IRequestHandler<CreateScheduleBlockCommand, Result<long>>
+    ICurrentUserService currentUserService,
+    CalendarAvailability availability,
+    ICalendarDatabase calendarDatabase) : IRequestHandler<CreateScheduleBlockCommand, Result<long>>
 {
-    private readonly IScheduleBlockRepository _scheduleBlockRepository = scheduleBlockRepository;
-    private readonly IAppointmentRepository _appointmentRepository = appointmentRepository;
-    private readonly ICurrentUserService _currentUserService = currentUserService;
-
-    public async Task<Result<long>> Handle(
-        CreateScheduleBlockCommand request,
-        CancellationToken cancellationToken)
+    public async Task<Result<long>> Handle(CreateScheduleBlockCommand request, CancellationToken cancellationToken)
     {
-        if (_currentUserService.BusinessId is not { } businessId || businessId == Guid.Empty)
+        if (currentUserService.BusinessId is not { } businessId || businessId == Guid.Empty)
+            return Result<long>.Fail("El usuario autenticado no tiene un negocio asignado.", ErrorType.Forbidden);
+
+        return await calendarDatabase.WithBusinessLockAsync(businessId, async token =>
         {
-            return Result<long>.Fail("El usuario autenticado no tiene un negocio asignado.");
-        }
+            if (request.EmployeeId is { } employeeId &&
+                !(await calendarDatabase.GetEmployeesAsync(businessId, token)).Any(e => e.Id == employeeId))
+                return Result<long>.Fail("El empleado no está disponible para este negocio.", ErrorType.Validation);
 
-        // 1. Verificar si existen citas confirmadas en el rango solicitado
-        IReadOnlyList<Appointment> existingAppointments;
-        if (request.EmployeeId.HasValue)
-        {
-            existingAppointments = await _appointmentRepository.GetByEmployeeAndDateRangeAsync(
-                businessId,
-                request.EmployeeId.Value,
-                request.StartDateTime,
-                request.EndDateTime,
-                cancellationToken);
-        }
-        else
-        {
-            existingAppointments = await _appointmentRepository.GetByDateRangeAsync(
-                businessId,
-                request.StartDateTime,
-                request.EndDateTime,
-                cancellationToken);
-        }
+            var reason = request.Reason?.Trim();
+            if (await availability.IsOccupiedAsync(businessId, request.EmployeeId, request.StartDateTime, request.EndDateTime, token))
+            {
+                var blocks = await scheduleBlockRepository.GetByDateRangeAsync(
+                    businessId, request.StartDateTime, request.EndDateTime, token);
+                var existing = blocks.FirstOrDefault(b => b.EmployeeId == request.EmployeeId &&
+                    b.StartDateTime == request.StartDateTime && b.EndDateTime == request.EndDateTime && b.Reason == reason);
+                return existing is not null
+                    ? Result<long>.Ok(existing.Id)
+                    : Result<long>.Fail("El horario ya tiene una cita o un bloqueo.", ErrorType.Conflict);
+            }
 
-        var activeAppointments = existingAppointments
-            .Where(a => a.Status == AppointmentStatus.Confirmed)
-            .ToList();
+            var created = await scheduleBlockRepository.CreateAsync(new ScheduleBlock
+            {
+                BusinessId = businessId,
+                EmployeeId = request.EmployeeId,
+                StartDateTime = request.StartDateTime,
+                EndDateTime = request.EndDateTime,
+                Reason = reason
+            }, token);
 
-        if (activeAppointments.Count > 0)
-        {
-            return Result<long>.Fail($"No se puede crear el bloqueo porque existen {activeAppointments.Count} cita(s) confirmada(s) en este horario.");
-        }
-
-        // 2. Crear entidad ScheduleBlock
-        var scheduleBlock = new ScheduleBlock
-        {
-            BusinessId = businessId,
-            EmployeeId = request.EmployeeId,
-            StartDateTime = request.StartDateTime,
-            EndDateTime = request.EndDateTime,
-            Reason = request.Reason
-        };
-
-        // 3. Persistir en base de datos
-        var created = await _scheduleBlockRepository.CreateAsync(scheduleBlock, cancellationToken);
-
-        // 4. Retornar ID generado
-        return Result<long>.Ok(created.Id, "Bloqueo de horario creado exitosamente.");
+            return Result<long>.Ok(created.Id, "Bloqueo de horario creado exitosamente.");
+        }, cancellationToken);
     }
 }

@@ -124,18 +124,37 @@ public class UpdateBusinessBrandIdentityCommandHandler(
         };
 
         business.CustomFormConfig = JsonSerializer.Serialize(updatedConfig, JsonOptions);
-        if (business.Brand != null)
-        {
-            business.Brand.LogoUrl = updatedConfig.LogoUrl;
-            business.Brand.PrimaryColor = updatedConfig.AccentColor;
-            business.Brand.IsDefault = false;
-            business.Brand.UpdatedAt = DateTime.UtcNow;
-        }
+        BusinessBrandSync.Apply(business, updatedConfig.LogoUrl, updatedConfig.AccentColor);
         business.UpdatedAt = DateTime.UtcNow;
 
         await _businessRepository.UpdateAsync(business, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result<BookingFormConfigDto>.Ok(updatedConfig, "Identidad de marca actualizada correctamente.");
+    }
+}
+
+internal static class BusinessBrandSync
+{
+    public static void Apply(Business business, string? logoUrl, string accentColor)
+    {
+        var now = DateTime.UtcNow;
+        if (business.Brand is null)
+        {
+            business.Brand = new BusinessBrand
+            {
+                BusinessId = business.Id,
+                LogoUrl = logoUrl,
+                PrimaryColor = accentColor,
+                IsDefault = false,
+                UpdatedAt = now
+            };
+            return;
+        }
+
+        business.Brand.LogoUrl = logoUrl;
+        business.Brand.PrimaryColor = accentColor;
+        business.Brand.IsDefault = false;
+        business.Brand.UpdatedAt = now;
     }
 }

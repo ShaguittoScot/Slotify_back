@@ -6,8 +6,7 @@ public interface IBusinessOnboardingPersistence
 {
     Task ExecuteInTransactionAsync(
         Func<CancellationToken, Task> operation,
-        CancellationToken cancellationToken = default
-    );
+        CancellationToken cancellationToken = default);
 
     void AddBusiness(Business business);
 
@@ -23,11 +22,9 @@ public interface IBusinessOnboardingPersistence
 
     Task<User?> GetUserWithBusinessDetailsAsync(
         Guid userId,
-        CancellationToken cancellationToken = default
-    );
+        CancellationToken cancellationToken = default);
 
     Task<bool> HasBusinessHoursAsync(
         Guid businessId,
-        CancellationToken cancellationToken = default
-    );
+        CancellationToken cancellationToken = default);
 }

@@ -68,4 +68,19 @@ public class CalendarController(IMediator mediator) : ControllerBase
         var result = await _mediator.Send(command, cancellationToken);
         return result.ToActionResult(r => Ok(new { success = true, id = r.Data, data = r.Data }));
     }
+
+    [HttpPatch("appointments/{id:guid}")]
+    public async Task<IActionResult> UpdateAppointment(
+        Guid id, [FromBody] AppointmentUpdateRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(
+            new UpdateAppointmentCommand(id, request.Status, request.StartTime, request.EndTime), cancellationToken);
+        return result.ToActionResult();
+    }
+
+    [HttpGet("employees")]
+    public async Task<IActionResult> GetEmployees(CancellationToken cancellationToken) =>
+        (await _mediator.Send(new GetCalendarEmployeesQuery(), cancellationToken)).ToActionResult();
+
+    public record AppointmentUpdateRequest(string? Status, DateTime? StartTime, DateTime? EndTime);
 }

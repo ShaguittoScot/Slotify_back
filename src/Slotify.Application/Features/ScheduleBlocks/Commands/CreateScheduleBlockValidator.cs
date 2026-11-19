@@ -13,11 +13,13 @@ public class CreateScheduleBlockValidator : AbstractValidator<CreateScheduleBloc
     {
         RuleFor(x => x.StartDateTime)
             .NotEmpty().WithMessage("La fecha/hora de inicio es requerida.")
+            .Must(value => value.Kind == DateTimeKind.Utc).WithMessage("La hora de inicio debe enviarse en UTC.")
             .LessThan(x => x.EndDateTime)
                 .WithMessage("La hora de inicio debe ser anterior a la hora de fin.");
 
         RuleFor(x => x.EndDateTime)
             .NotEmpty().WithMessage("La fecha/hora de fin es requerida.")
+            .Must(value => value.Kind == DateTimeKind.Utc).WithMessage("La hora de fin debe enviarse en UTC.")
             .GreaterThan(x => x.StartDateTime)
                 .WithMessage("La hora de fin debe ser posterior a la hora de inicio.");
 

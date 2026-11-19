@@ -1,4 +1,3 @@
-
 using FluentValidation;
 using Slotify.Domain.Interfaces;
 
@@ -32,25 +31,24 @@ public class CompleteBusinessOnboardingValidator
                 .NotEmpty()
                 .WithMessage("El nombre del negocio es requerido.")
                 .MaximumLength(150)
-                .WithMessage("El nombre del negocio no puede exceder 150 caracteres.");
+                .WithMessage("El nombre no puede exceder 150 caracteres.");
 
             RuleFor(x => x.Business.Phone)
                 .MaximumLength(20)
-                .WithMessage("El telÃ©fono no puede exceder 20 caracteres.");
+                .WithMessage("El teléfono no puede exceder 20 caracteres.");
 
             RuleFor(x => x.Business.SectorTemplateId)
                 .Cascade(CascadeMode.Stop)
                 .GreaterThan(0)
-                .WithMessage("Debe seleccionar un giro comercial vÃ¡lido.")
+                .WithMessage("Debe seleccionar un giro comercial válido.")
                 .MustAsync(async (sectorId, cancellationToken) =>
                 {
                     var sector = await sectorTemplateRepository.GetByIdAsync(
                         sectorId,
                         cancellationToken);
-
                     return sector is not null;
                 })
-                .WithMessage("La plantilla del sector seleccionado no existe.");
+                .WithMessage("El giro comercial seleccionado no existe.");
 
             RuleFor(x => x.Business.TimeZone)
                 .NotEmpty()
@@ -58,7 +56,7 @@ public class CompleteBusinessOnboardingValidator
                 .MaximumLength(50)
                 .WithMessage("La zona horaria no puede exceder 50 caracteres.")
                 .Must(BeValidTimeZone)
-                .WithMessage("La zona horaria no es vÃ¡lida.");
+                .WithMessage("La zona horaria no es válida.");
         });
 
         // Horarios del negocio
@@ -66,31 +64,31 @@ public class CompleteBusinessOnboardingValidator
             .NotNull()
             .WithMessage("Los horarios son requeridos.")
             .NotEmpty()
-            .WithMessage("Debe configurar al menos un horario.");
+            .WithMessage("Debe configurar al menos un horario de atención.");
 
         RuleForEach(x => x.BusinessHours)
             .ChildRules(hour =>
             {
                 hour.RuleFor(x => x.DayOfWeek)
                     .InclusiveBetween((short)0, (short)6)
-                    .WithMessage("El dÃ­a debe estar entre 0 (domingo) y 6 (sÃ¡bado).");
+                    .WithMessage("El día debe estar entre 0 (domingo) y 6 (sábado).");
 
                 hour.RuleFor(x => x.EndTime)
                     .GreaterThan(x => x.StartTime)
-                    .WithMessage("La hora de cierre debe ser posterior a la hora de apertura.");
+                    .WithMessage("La hora de fin debe ser posterior a la de inicio.");
             });
 
         RuleFor(x => x.BusinessHours)
             .Must(hours => hours is null ||
                 hours.Select(h => h.DayOfWeek).Distinct().Count() == hours.Count)
-            .WithMessage("No puede haber horarios duplicados para un mismo dÃ­a.");
+            .WithMessage("No puede haber horarios duplicados para un mismo día.");
 
         // Servicios
         RuleFor(x => x.Services)
             .NotNull()
             .WithMessage("La lista de servicios es requerida.")
             .NotEmpty()
-            .WithMessage("Debe registrar al menos un servicio.");
+            .WithMessage("Debe registrar al menos un servicio inicial.");
 
         RuleForEach(x => x.Services)
             .ChildRules(service =>
@@ -99,25 +97,22 @@ public class CompleteBusinessOnboardingValidator
                     .NotEmpty()
                     .WithMessage("El nombre del servicio es requerido.")
                     .MaximumLength(150)
-                    .WithMessage("El nombre del servicio no puede exceder 150 caracteres.");
+                    .WithMessage("El nombre no puede exceder 150 caracteres.");
 
                 service.RuleFor(x => x.DurationMinutes)
                     .GreaterThan(0)
-                    .WithMessage("La duraciÃ³n debe ser mayor que cero.");
+                    .WithMessage("La duración debe ser mayor que cero.");
 
                 service.RuleFor(x => x.Price)
                     .GreaterThanOrEqualTo(0)
                     .WithMessage("El precio no puede ser negativo.")
                     .LessThanOrEqualTo(99999999.99m)
-                    .WithMessage("El precio excede el mÃ¡ximo permitido.");
+                    .WithMessage("El precio excede el máximo permitido.");
             });
     }
 
-    private static bool BeValidTimeZone(string? timeZone)
+    private static bool BeValidTimeZone(string timeZone)
     {
-        if (string.IsNullOrWhiteSpace(timeZone))
-            return false;
-
         try
         {
             TimeZoneInfo.FindSystemTimeZoneById(timeZone);

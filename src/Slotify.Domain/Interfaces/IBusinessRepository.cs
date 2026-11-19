@@ -25,6 +25,7 @@ public interface IBusinessRepository : IRepository<Business>
     Task<IReadOnlyList<Business>> GetAllWithDetailsAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// <summary>
     /// Obtiene un negocio por su slug único con sus entidades relacionadas (plantilla de sector, marca y catálogo de servicios activos),
     /// únicamente si ha completado el proceso de onboarding comercial.
     /// </summary>

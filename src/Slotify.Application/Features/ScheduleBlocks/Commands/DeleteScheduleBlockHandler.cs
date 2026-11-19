@@ -1,6 +1,7 @@
 using MediatR;
 using Slotify.Application.Common.Interfaces;
 using Slotify.Application.Common.Models;
+using Slotify.Application.Features.Calendar;
 using Slotify.Domain.Interfaces;
 
 namespace Slotify.Application.Features.ScheduleBlocks.Commands;
@@ -11,7 +12,8 @@ namespace Slotify.Application.Features.ScheduleBlocks.Commands;
 /// </summary>
 public class DeleteScheduleBlockHandler(
     IScheduleBlockRepository scheduleBlockRepository,
-    ICurrentUserService currentUserService)
+    ICurrentUserService currentUserService,
+    ICalendarDatabase calendarDatabase)
     : IRequestHandler<DeleteScheduleBlockCommand, Result>
 {
     public const string ForbiddenError = "FORBIDDEN_BUSINESS_MISMATCH";
@@ -28,23 +30,17 @@ public class DeleteScheduleBlockHandler(
             return Result.Fail(ForbiddenError, ErrorType.Forbidden);
         }
 
-        // 1. Buscar bloqueo por ID
-        var block = await _scheduleBlockRepository.GetByIdAsync(request.BlockId, cancellationToken);
-        if (block == null)
+        return await calendarDatabase.WithBusinessLockAsync(businessId, async token =>
         {
-            return Result.NotFound("Bloqueo no encontrado.");
-        }
+            var block = await _scheduleBlockRepository.GetByIdAsync(request.BlockId, token);
+            if (block is null)
+                return Result.NotFound("Bloqueo no encontrado.");
 
-        // 2. Verificar pertenencia estricta al negocio del token
-        if (block.BusinessId != businessId)
-        {
-            return Result.Fail("No tiene autorización para eliminar este bloqueo.", ErrorType.Forbidden);
-        }
+            if (block.BusinessId != businessId)
+                return Result.Fail("No tiene autorización para eliminar este bloqueo.", ErrorType.Forbidden);
 
-        // 3. Eliminar
-        await _scheduleBlockRepository.DeleteAsync(block, cancellationToken);
-
-        // 4. Retornar éxito
-        return Result.Ok("Bloqueo eliminado exitosamente.");
+            await _scheduleBlockRepository.DeleteAsync(block, token);
+            return Result.Ok("Bloqueo eliminado exitosamente.");
+        }, cancellationToken);
     }
 }

@@ -126,5 +126,95 @@ public class BusinessBrandingTests
         result.Data.SecondaryColor.Should().Be("#0D9488");
         result.Data.BusinessName.Should().Be("Clínica Dental Sonrisas");
     }
+
+    [Fact]
+    public async Task UpdateBusinessBrandIdentity_WhenBrandIsNull_CreatesAndSyncsBusinessBrandWithStorageUrl()
+    {
+        var businessId = Guid.NewGuid();
+        var business = new Business
+        {
+            Id = businessId,
+            Name = "Estudio Norte",
+            Slug = "estudio-norte",
+            Brand = null
+        };
+
+        var mockRepo = new Mock<IBusinessRepository>();
+        var mockUow = new Mock<IUnitOfWork>();
+        var mockCurrentUserService = new Mock<ICurrentUserService>();
+        mockCurrentUserService.Setup(s => s.IsAuthenticated).Returns(true);
+        mockCurrentUserService.Setup(s => s.UserId).Returns(Guid.NewGuid());
+        mockCurrentUserService.Setup(s => s.BusinessId).Returns(businessId);
+        mockRepo.Setup(r => r.GetByIdAsync(businessId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(business);
+
+        const string supabasePublicUrl = "https://xyz.supabase.co/storage/v1/object/public/business-logos/user-1/biz-1/logo-123.png";
+        var handler = new UpdateBusinessBrandIdentityCommandHandler(mockRepo.Object, mockUow.Object, mockCurrentUserService.Object);
+        var command = new UpdateBusinessBrandIdentityCommand(
+            businessId,
+            supabasePublicUrl,
+            "#09090b",
+            "#18181b",
+            "Estudio Norte");
+
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        result.Success.Should().BeTrue();
+        business.Brand.Should().NotBeNull();
+        business.Brand!.BusinessId.Should().Be(businessId);
+        business.Brand.LogoUrl.Should().Be(supabasePublicUrl);
+        business.Brand.PrimaryColor.Should().Be("#09090B");
+        business.Brand.IsDefault.Should().BeFalse();
+        mockRepo.Verify(r => r.UpdateAsync(business, It.IsAny<CancellationToken>()), Times.Once);
+        mockUow.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateBusinessFormConfig_WhenBrandIsNull_CreatesAndSyncsBusinessBrandWithStorageUrl()
+    {
+        var businessId = Guid.NewGuid();
+        var business = new Business
+        {
+            Id = businessId,
+            Name = "Clínica Central",
+            Slug = "clinica-central",
+            Brand = null
+        };
+
+        var mockRepo = new Mock<IBusinessRepository>();
+        var mockUow = new Mock<IUnitOfWork>();
+        var mockCurrentUserService = new Mock<ICurrentUserService>();
+        mockCurrentUserService.Setup(s => s.IsAuthenticated).Returns(true);
+        mockCurrentUserService.Setup(s => s.UserId).Returns(Guid.NewGuid());
+        mockCurrentUserService.Setup(s => s.BusinessId).Returns(businessId);
+        mockRepo.Setup(r => r.GetByIdAsync(businessId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(business);
+
+        const string supabasePublicUrl = "https://xyz.supabase.co/storage/v1/object/public/business-logos/user-1/biz-1/logo-456.webp";
+        var formJson = $$"""
+        {
+          "title": "Reserva en Clínica Central",
+          "description": "Agenda en línea",
+          "presentationStyle": "classic_scroll",
+          "accentColor": "#2563eb",
+          "secondaryColor": "#1d4ed8",
+          "logoUrl": "{{supabasePublicUrl}}",
+          "businessName": "Clínica Central",
+          "fields": []
+        }
+        """;
+
+        var handler = new UpdateBusinessFormConfigCommandHandler(mockRepo.Object, mockUow.Object, mockCurrentUserService.Object);
+        var result = await handler.Handle(new UpdateBusinessFormConfigCommand(businessId, formJson), CancellationToken.None);
+
+        result.Success.Should().BeTrue();
+        business.Brand.Should().NotBeNull();
+        business.Brand!.BusinessId.Should().Be(businessId);
+        business.Brand.LogoUrl.Should().Be(supabasePublicUrl);
+        business.Brand.PrimaryColor.Should().Be("#2563EB");
+        business.Brand.IsDefault.Should().BeFalse();
+        mockRepo.Verify(r => r.UpdateAsync(business, It.IsAny<CancellationToken>()), Times.Once);
+        mockUow.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
 }
 

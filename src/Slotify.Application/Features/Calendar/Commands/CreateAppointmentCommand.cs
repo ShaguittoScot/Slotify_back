@@ -11,6 +11,7 @@ namespace Slotify.Application.Features.Calendar.Commands;
 public record CreateAppointmentCommand : IRequest<Result<Guid>>
 {
     public Guid? EmployeeId { get; init; }
+    public Guid? BusinessClientId { get; init; }
     public required DateTime StartTime { get; init; }
     public required DateTime EndTime { get; init; }
     public required string ClientName { get; init; }

@@ -4,6 +4,7 @@ using Slotify.Application.Common.Models;
 using Slotify.Application.Features.Calendar.DTOs;
 using Slotify.Domain.Entities;
 using Slotify.Domain.Interfaces;
+using Slotify.Domain.Enums;
 
 namespace Slotify.Application.Features.Calendar.Queries;
 
@@ -14,7 +15,9 @@ namespace Slotify.Application.Features.Calendar.Queries;
 public class GetCalendarSlotsHandler(
     IAppointmentRepository appointmentRepository,
     IScheduleBlockRepository scheduleBlockRepository,
-    ICurrentUserService currentUserService)
+    ICurrentUserService currentUserService,
+    ICalendarDatabase calendarDatabase,
+    IBusinessRepository businessRepository)
     : IRequestHandler<GetCalendarSlotsQuery, Result<CalendarResponse>>
 {
     private readonly IAppointmentRepository _appointmentRepository = appointmentRepository;
@@ -64,12 +67,16 @@ public class GetCalendarSlotsHandler(
                 .ToList();
         }
 
+        var employees = appointments.Any(a => a.EmployeeId.HasValue) || blocks.Any(b => b.EmployeeId.HasValue)
+            ? (await calendarDatabase.GetEmployeesAsync(businessId, cancellationToken)).ToDictionary(e => e.Id, e => e.Name)
+            : new Dictionary<Guid, string>();
+
         // 3. Mapear citas a CalendarSlotDto
         var slots = new List<CalendarSlotDto>();
 
         foreach (var apt in appointments)
         {
-            var statusStr = apt.Status.ToString().ToLowerInvariant();
+            var statusStr = apt.Status == AppointmentStatus.NoShow ? "no_show" : apt.Status.ToString().ToLowerInvariant();
             slots.Add(new CalendarSlotDto
             {
                 Type = "appointment",
@@ -80,9 +87,11 @@ public class GetCalendarSlotsHandler(
                 Status = statusStr,
                 ClientName = apt.ClientName,
                 ClientPhone = apt.ClientPhone,
-                ServicePrice = apt.AgreedTotal > 0 ? $"${apt.AgreedTotal:N0} MXN" : null,
+                ServicePrice = apt.AgreedTotal > 0 ? $"${apt.AgreedTotal:N2} MXN" : null,
+                AgreedTotal = apt.AgreedTotal,
+                EmployeeId = apt.EmployeeId,
                 BlockReason = null,
-                EmployeeName = null
+                EmployeeName = apt.EmployeeId is { } employeeId ? employees.GetValueOrDefault(employeeId) : null
             });
         }
 
@@ -101,7 +110,8 @@ public class GetCalendarSlotsHandler(
                 ClientPhone = null,
                 ServicePrice = null,
                 BlockReason = blk.Reason,
-                EmployeeName = null
+                EmployeeId = blk.EmployeeId,
+                EmployeeName = blk.EmployeeId is { } employeeId ? employees.GetValueOrDefault(employeeId) : null
             });
         }
 
@@ -110,6 +120,8 @@ public class GetCalendarSlotsHandler(
 
         var response = new CalendarResponse
         {
+            TimeZone = (await businessRepository.GetByIdAsync(businessId, cancellationToken))?.TimeZone
+                ?? "America/Mexico_City",
             RangeStart = request.StartDate,
             RangeEnd = request.EndDate,
             Slots = orderedSlots

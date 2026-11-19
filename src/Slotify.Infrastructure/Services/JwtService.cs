@@ -11,11 +11,22 @@ namespace Slotify.Infrastructure.Services;
 
 public class JwtService : IJwtService
 {
+    public const string Issuer = "Slotify";
+    public const string Audience = "Slotify.Api";
     private readonly string _secret;
 
     public JwtService(IConfiguration configuration)
     {
-        _secret = configuration["Jwt:Secret"] ?? throw new InvalidOperationException("Jwt:Secret is missing in configuration.");
+        var secret = configuration["Jwt:Secret"]
+            ?? configuration["JWT_SECRET"];
+
+        if (string.IsNullOrWhiteSpace(secret) ||
+            string.Equals(secret, "YOUR_JWT_SECRET_KEY_MIN_32_CHARS_LONG", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Jwt:Secret is missing in configuration.");
+        }
+
+        _secret = secret;
     }
 
     public string GenerateAccessToken(User user)
@@ -34,7 +45,9 @@ public class JwtService : IJwtService
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
-            Expires = DateTime.UtcNow.AddMinutes(15), // Short-lived access token
+            Issuer = Issuer,
+            Audience = Audience,
+            Expires = DateTime.UtcNow.Add(IJwtService.AccessTokenLifetime),
             SigningCredentials = new SigningCredentials(
                 new SymmetricSecurityKey(key),
                 SecurityAlgorithms.HmacSha256Signature)
@@ -66,8 +79,10 @@ public class JwtService : IJwtService
             {
                 ValidateIssuerSigningKey = true,
                 IssuerSigningKey = new SymmetricSecurityKey(key),
-                ValidateIssuer = false,
-                ValidateAudience = false,
+                ValidIssuer = Issuer,
+                ValidAudience = Audience,
+                ValidateIssuer = true,
+                ValidateAudience = true,
                 ClockSkew = TimeSpan.Zero
             }, out SecurityToken validatedToken);
 

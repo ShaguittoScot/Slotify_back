@@ -1,4 +1,4 @@
-﻿namespace Slotify.Application.Features.Onboarding.DTOs;
+namespace Slotify.Application.Features.Onboarding.DTOs;
 
 /// <summary>
 /// Representa un servicio configurado por el negocio durante el onboarding.
@@ -11,7 +11,7 @@ public record OnboardingServiceDto
     public required string Name { get; init; }
 
     /// <summary>
-    /// DuraciÃ³n del servicio en minutos.
+    /// Duración del servicio en minutos.
     /// </summary>
     public required int DurationMinutes { get; init; }
 

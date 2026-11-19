@@ -76,25 +76,16 @@ public class CompleteBusinessOnboardingHandler(
 
                 // 5. Aislamiento multi-inquilino: contrastar claim businessId con el negocio del usuario
                 var tokenBusinessId = _currentUserService.BusinessId;
-                if (tokenBusinessId is null || tokenBusinessId == Guid.Empty)
+                if (tokenBusinessId is null || tokenBusinessId == Guid.Empty || tokenBusinessId.Value != business.Id)
                 {
                     result = Result<AuthUserDto>.Fail(
-                        "El token no contiene un identificador de negocio válido.",
+                        "El negocio de la sesión no coincide con el establecimiento registrado del usuario.",
                         ErrorType.Forbidden
                     );
                     return;
                 }
 
-                if (tokenBusinessId.Value != business.Id || tokenBusinessId.Value != user.BusinessId)
-                {
-                    result = Result<AuthUserDto>.Fail(
-                        "El negocio del token no coincide con el asignado al usuario.",
-                        ErrorType.Forbidden
-                    );
-                    return;
-                }
-
-                // 6. Idempotencia: si ya se completó, responder exitosamente sin modificar datos
+                // 6. Idempotencia: si el onboarding ya fue completado, responder OK sin re-aplicar cambios
                 if (business.OnboardingCompletedAt.HasValue)
                 {
                     result = Result<AuthUserDto>.Ok(
@@ -107,25 +98,24 @@ public class CompleteBusinessOnboardingHandler(
                             Email = user.Email,
                             Role = user.Role.ToString(),
                             BusinessId = business.Id,
+                            BusinessName = business.Name,
                             IsOnboardingCompleted = true,
                         }
                     );
-
                     return;
                 }
 
-                // 7. Evitar duplicar configuraciones parciales
-                var hasBusinessHours = await _persistence.HasBusinessHoursAsync(business.Id, ct);
-
-                if (business.Brand is not null || business.Services.Any() || hasBusinessHours)
+                // 7. Integridad: validar que no existan datos previos o parciales de configuración
+                var hasHours = await _persistence.HasBusinessHoursAsync(business.Id, ct);
+                if (business.Brand is not null || business.Services.Count > 0 || hasHours)
                 {
                     result = Result<AuthUserDto>.Fail(
-                        "El negocio contiene datos parciales de onboarding. Se requiere revisar su información antes de continuar."
+                        "El negocio contiene datos parciales de onboarding. Se requiere revisar su información antes de continuar.",
+                        ErrorType.Conflict
                     );
                     return;
                 }
 
-                // 8. Generación de slug usando la lógica centralizada de la entidad
                 var newSlug = Business.GenerateSlug(request.Business.Name);
 
                 if (!string.Equals(newSlug, business.Slug, StringComparison.OrdinalIgnoreCase))
@@ -210,6 +200,7 @@ public class CompleteBusinessOnboardingHandler(
                         Email = user.Email,
                         Role = user.Role.ToString(),
                         BusinessId = business.Id,
+                        BusinessName = business.Name,
                         IsOnboardingCompleted = true,
                     }
                 );

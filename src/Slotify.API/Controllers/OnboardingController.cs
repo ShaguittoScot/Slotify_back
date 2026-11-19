@@ -34,7 +34,6 @@ public class OnboardingController(IMediator mediator) : ControllerBase
         CancellationToken cancellationToken)
     {
         var result = await _mediator.Send(command, cancellationToken);
-
         return result.ToActionResult();
     }
 }

@@ -10,15 +10,12 @@ public class BusinessOnboardingPersistence(AppDbContext context) : IBusinessOnbo
 
     public async Task ExecuteInTransactionAsync(
         Func<CancellationToken, Task> operation,
-        CancellationToken cancellationToken = default
-    )
+        CancellationToken cancellationToken = default)
     {
         var strategy = _context.Database.CreateExecutionStrategy();
         await strategy.ExecuteAsync(async () =>
         {
-            await using var transaction = await _context.Database.BeginTransactionAsync(
-                cancellationToken
-            );
+            await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
             try
             {
                 await operation(cancellationToken);
@@ -34,26 +31,23 @@ public class BusinessOnboardingPersistence(AppDbContext context) : IBusinessOnbo
 
     public async Task<User?> GetUserWithBusinessDetailsAsync(
         Guid userId,
-        CancellationToken cancellationToken = default
-    )
+        CancellationToken cancellationToken = default)
     {
-        return await _context
-            .Users.Include(u => u.Business)
-                .ThenInclude(b => b.Brand)
+        return await _context.Users
             .Include(u => u.Business)
-                .ThenInclude(b => b.Services)
+                .ThenInclude(b => b!.Brand)
+            .Include(u => u.Business)
+                .ThenInclude(b => b!.Services)
             .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
     }
 
     public async Task<bool> HasBusinessHoursAsync(
         Guid businessId,
-        CancellationToken cancellationToken = default
-    )
+        CancellationToken cancellationToken = default)
     {
         return await _context.AvailabilitySchedules.AnyAsync(
             schedule => schedule.BusinessId == businessId && schedule.EmployeeId == null,
-            cancellationToken
-        );
+            cancellationToken);
     }
 
     public void AddBusiness(Business business)

@@ -109,6 +109,8 @@ public class OnboardingSecurityTests
         var descriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
+            Issuer = "Slotify",
+            Audience = "Slotify.Api",
             NotBefore = notBefore,
             Expires = expires,
             SigningCredentials = new SigningCredentials(

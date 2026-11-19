@@ -11,6 +11,7 @@ using Slotify.Domain.Entities;
 /// </summary>
 public interface IJwtService
 {
+    static readonly TimeSpan AccessTokenLifetime = TimeSpan.FromMinutes(15);
     /// <summary>
     /// Genera un access token JWT para el usuario autenticado.
     /// Claims mínimos: sub (userId), email, role, businessId.

@@ -1,13 +1,13 @@
-﻿namespace Slotify.Application.Features.Onboarding.DTOs;
+namespace Slotify.Application.Features.Onboarding.DTOs;
 
 /// <summary>
-/// Representa el horario de apertura del negocio para un dÃ­a.
+/// Representa el horario de apertura del negocio para un día.
 /// No corresponde a la disponibilidad de un empleado.
 /// </summary>
 public record OnboardingBusinessHourDto
 {
     /// <summary>
-    /// DÃ­a de la semana: 0=Domingo, 1=Lunes, ..., 6=SÃ¡bado.
+    /// Día de la semana: 0=Domingo, 1=Lunes, ..., 6=Sábado.
     /// </summary>
     public required short DayOfWeek { get; init; }
 

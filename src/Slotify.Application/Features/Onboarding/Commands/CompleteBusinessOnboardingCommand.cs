@@ -1,4 +1,3 @@
-
 using MediatR;
 using Slotify.Application.Common.Models;
 using Slotify.Application.Features.Auth.DTOs;

@@ -1,5 +1,8 @@
 using FluentValidation;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.EntityFrameworkCore;
+using Npgsql;
+using Slotify.Domain.Entities;
 
 namespace Slotify.API.Common;
 
@@ -19,6 +22,15 @@ public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logge
             ValidationException validation => (
                 StatusCodes.Status400BadRequest,
                 validation.Errors.Select(e => e.ErrorMessage).Distinct().ToList()),
+            DbUpdateConcurrencyException concurrency when concurrency.Entries.Any(e => e.Entity is BusinessClient) => (
+                StatusCodes.Status409Conflict,
+                new List<string> { "La ficha cambió. Actualiza la cartera e inténtalo otra vez." }),
+            DbUpdateException { InnerException: PostgresException { SqlState: PostgresErrorCodes.UniqueViolation, TableName: "clientes_negocio" } } => (
+                StatusCodes.Status409Conflict,
+                new List<string> { "La ficha cambió. Actualiza la cartera e inténtalo otra vez." }),
+            DbUpdateException { InnerException: PostgresException { SqlState: PostgresErrorCodes.ExclusionViolation, TableName: "citas" } } => (
+                StatusCodes.Status409Conflict,
+                new List<string> { "El horario ya está ocupado." }),
             _ => (
                 StatusCodes.Status500InternalServerError,
                 new List<string> { "Ocurrió un error inesperado." })

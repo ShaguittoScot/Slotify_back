@@ -1,4 +1,4 @@
-﻿namespace Slotify.Application.Features.Onboarding.DTOs;
+namespace Slotify.Application.Features.Onboarding.DTOs;
 
 /// <summary>
 /// Datos del negocio capturados durante el onboarding.

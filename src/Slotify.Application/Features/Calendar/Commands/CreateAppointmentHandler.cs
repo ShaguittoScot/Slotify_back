@@ -16,7 +16,10 @@ public class CreateAppointmentHandler(
     IAppointmentRepository appointmentRepository,
     IBusinessRepository businessRepository,
     IUnitOfWork unitOfWork,
-    ICurrentUserService currentUserService)
+    ICurrentUserService currentUserService,
+    CalendarAvailability availability,
+    ICalendarDatabase calendarDatabase,
+    IBusinessClientRepository businessClients)
     : IRequestHandler<CreateAppointmentCommand, Result<Guid>>
 {
     private readonly IAppointmentRepository _appointmentRepository = appointmentRepository;
@@ -30,7 +33,7 @@ public class CreateAppointmentHandler(
     {
         if (_currentUserService.BusinessId is not { } businessId || businessId == Guid.Empty)
         {
-            return Result<Guid>.Fail("El usuario autenticado no tiene un negocio asignado.");
+            return Result<Guid>.Fail("El usuario autenticado no tiene un negocio asignado.", ErrorType.Forbidden);
         }
 
         var business = await _businessRepository.GetByIdAsync(businessId, cancellationToken);
@@ -47,20 +50,48 @@ public class CreateAppointmentHandler(
             StartTime = request.StartTime,
             EndTime = request.EndTime,
             ClientName = request.ClientName.Trim(),
-            ClientEmail = !string.IsNullOrWhiteSpace(request.ClientEmail) 
-                ? request.ClientEmail.Trim() 
-                : "cliente@ejemplo.com",
-            ClientPhone = !string.IsNullOrWhiteSpace(request.ClientPhone) 
-                ? request.ClientPhone.Trim() 
-                : "+52 55 1234 5678",
+            ClientEmail = request.ClientEmail?.Trim() ?? string.Empty,
+            ClientPhone = request.ClientPhone?.Trim() ?? string.Empty,
             Status = AppointmentStatus.Confirmed,
             CancellationToken = Guid.NewGuid().ToString("N"),
             AgreedTotal = request.AgreedTotal
         };
 
-        await _appointmentRepository.AddAsync(appointment, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return await calendarDatabase.WithBusinessLockAsync(businessId, async token =>
+        {
+            if (request.EmployeeId is { } employeeId &&
+                !(await calendarDatabase.GetEmployeesAsync(businessId, token)).Any(e => e.Id == employeeId))
+            {
+                return Result<Guid>.Fail("El empleado no está disponible para este negocio.", ErrorType.Validation);
+            }
 
-        return Result<Guid>.Ok(appointment.Id, "Cita agendada exitosamente.");
+            // El ID se conserva si EF reintenta la transacción.
+            if ((await _appointmentRepository.GetByIdAsync(appointment.Id, token))?.BusinessId == businessId)
+            {
+                return Result<Guid>.Ok(appointment.Id);
+            }
+
+            if (await availability.IsOccupiedAsync(businessId, request.EmployeeId, request.StartTime, request.EndTime, token))
+            {
+                return Result<Guid>.Fail("El horario ya tiene una cita o un bloqueo.", ErrorType.Conflict);
+            }
+
+            if (request.BusinessClientId is { } cardId)
+            {
+                var card = await businessClients.GetByIdAndBusinessIdAsync(cardId, businessId, token);
+                if (card is null || card.Id != cardId || card.BusinessId != businessId || card.ArchivedAt is not null)
+                {
+                    return Result<Guid>.NotFound("El cliente seleccionado ya no está en la cartera activa.");
+                }
+
+                appointment.ClientId = card.ClientId;
+                card.HistoryAppointmentIds = [.. card.HistoryAppointmentIds, appointment.Id];
+                await businessClients.UpdateAsync(card, token);
+            }
+
+            await _appointmentRepository.AddAsync(appointment, token);
+            await _unitOfWork.SaveChangesAsync(token);
+            return Result<Guid>.Ok(appointment.Id, "Cita agendada exitosamente.");
+        }, cancellationToken);
     }
 }

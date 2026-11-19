@@ -1,12 +1,10 @@
-
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Slotify.Domain.Entities;
 
 namespace Slotify.Infrastructure.Data.Configurations;
 
-public class AvailabilityScheduleConfiguration
-    : IEntityTypeConfiguration<AvailabilitySchedule>
+public sealed class AvailabilityScheduleConfiguration : IEntityTypeConfiguration<AvailabilitySchedule>
 {
     public void Configure(EntityTypeBuilder<AvailabilitySchedule> builder)
     {
