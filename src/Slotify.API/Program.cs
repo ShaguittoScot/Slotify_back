@@ -47,6 +47,20 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
             ValidateAudience = true,
             ClockSkew = TimeSpan.Zero
         };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var path = context.Request.Path;
+                if (path.StartsWithSegments("/api/auth"))
+                {
+                    // Los endpoints /api/auth usan el token de Supabase y lo verifican con ISupabaseIdentityVerifier
+                    context.NoResult();
+                }
+                return Task.CompletedTask;
+            }
+        };
     });
 
 builder.Services.AddAuthorization();

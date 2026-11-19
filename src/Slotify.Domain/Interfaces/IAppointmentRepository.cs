@@ -45,4 +45,14 @@ public interface IAppointmentRepository : IRepository<Appointment>
         DateTime endDate,
         Guid? excludeAppointmentId = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Obtiene las citas de un cliente específico (por ClientId) en un rango de fechas.
+    /// US-Notifications: Permite al cliente ver sus propias citas próximas.
+    /// </summary>
+    Task<IReadOnlyList<Appointment>> GetByClientIdAsync(
+        Guid clientId,
+        DateTime startDate,
+        DateTime endDate,
+        CancellationToken cancellationToken = default);
 }
