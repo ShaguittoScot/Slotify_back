@@ -65,14 +65,15 @@ public static class DependencyInjection
         {
             var envConn = Environment.GetEnvironmentVariable("DATABASE_URL")
                 ?? Environment.GetEnvironmentVariable("SUPABASE_DB_CONNECTION");
-            if (!string.IsNullOrWhiteSpace(envConn))
+            if (!string.IsNullOrWhiteSpace(envConn) &&
+                !envConn.Contains("YOUR_SUPABASE_HOST", StringComparison.OrdinalIgnoreCase))
             {
                 connectionString = envConn;
             }
             else
             {
-                var p = string.Concat("i22sIdgt", "jYQj7NT07N");
-                return $"Host={ipv4PoolerHost};Port=5432;Database=postgres;Username=postgres.{projectRef};Password={p};SSL Mode=Require;Trust Server Certificate=true";
+                throw new InvalidOperationException(
+                    "DefaultConnection is not configured. Set ConnectionStrings__DefaultConnection or DATABASE_URL.");
             }
         }
 

@@ -34,8 +34,13 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
     .Configure<IConfiguration>((options, configuration) =>
     {
         var jwtSecret = configuration["Jwt:Secret"]
-            ?? configuration["JWT_SECRET"]
-            ?? "YOUR_JWT_SECRET_KEY_MIN_32_CHARS_LONG";
+            ?? configuration["JWT_SECRET"];
+
+        if (string.IsNullOrWhiteSpace(jwtSecret) ||
+            string.Equals(jwtSecret, "YOUR_JWT_SECRET_KEY_MIN_32_CHARS_LONG", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Jwt:Secret is not configured.");
+        }
 
         options.TokenValidationParameters = new TokenValidationParameters
         {
@@ -57,14 +62,27 @@ builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
 
-// CORS for React Native
+var configuredOrigins = (builder.Configuration["Cors:AllowedOrigins"]
+    ?? builder.Configuration["CORS_ALLOWED_ORIGINS"]
+    ?? string.Empty)
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
+    options.AddPolicy("SlotifyCors", policy =>
     {
-        policy.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader();
+        if (configuredOrigins.Length > 0)
+        {
+            policy.WithOrigins(configuredOrigins)
+                  .AllowAnyMethod()
+                  .AllowAnyHeader();
+        }
+        else if (builder.Environment.IsDevelopment())
+        {
+            policy.AllowAnyOrigin()
+                  .AllowAnyMethod()
+                  .AllowAnyHeader();
+        }
     });
 });
 
@@ -97,12 +115,101 @@ using (var scope = app.Services.CreateScope())
             CREATE INDEX IF NOT EXISTS idx_clientes_negocio_negocio_cliente ON public.clientes_negocio (id_negocio, id_cliente);
             ALTER TABLE public.clientes_negocio
                 ADD COLUMN IF NOT EXISTS fecha_archivado TIMESTAMP WITH TIME ZONE,
-                ADD COLUMN IF NOT EXISTS citas_historial UUID[] NOT NULL DEFAULT '{}'::UUID[];
+                ADD COLUMN IF NOT EXISTS citas_historial UUID[] NOT NULL DEFAULT ARRAY[]::UUID[];
             """);
     }
     catch (Exception ex)
     {
         Log.Warning(ex, "Could not apply auto-migration checks (US-017 / US-026)");
+    }
+
+    try
+    {
+        await Microsoft.EntityFrameworkCore.RelationalDatabaseFacadeExtensions.ExecuteSqlRawAsync(
+            db.Database,
+            """
+            INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+            VALUES (
+                'business-logos',
+                'business-logos',
+                TRUE,
+                4194304,
+                ARRAY['image/jpeg', 'image/png', 'image/webp']
+            )
+            ON CONFLICT (id) DO UPDATE
+            SET public = TRUE,
+                file_size_limit = 4194304,
+                allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp'];
+            """);
+        Log.Information("Supabase Storage bucket 'business-logos' verified.");
+    }
+    catch (Exception ex)
+    {
+        Log.Warning(ex, "Could not auto-create Supabase Storage bucket 'business-logos'; run supabase/storage_business_logos.sql in Supabase SQL Editor.");
+    }
+
+    try
+    {
+        await Microsoft.EntityFrameworkCore.RelationalDatabaseFacadeExtensions.ExecuteSqlRawAsync(
+            db.Database,
+            """
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_policies
+                    WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'Public read business-logos'
+                ) THEN
+                    CREATE POLICY "Public read business-logos"
+                    ON storage.objects FOR SELECT
+                    TO public
+                    USING (bucket_id = 'business-logos');
+                END IF;
+
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_policies
+                    WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'Authenticated upload own folder in business-logos'
+                ) THEN
+                    CREATE POLICY "Authenticated upload own folder in business-logos"
+                    ON storage.objects FOR INSERT
+                    TO authenticated
+                    WITH CHECK (
+                        bucket_id = 'business-logos'
+                        AND (storage.foldername(name))[1] = auth.uid()::text
+                    );
+                END IF;
+
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_policies
+                    WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'Authenticated update own folder in business-logos'
+                ) THEN
+                    CREATE POLICY "Authenticated update own folder in business-logos"
+                    ON storage.objects FOR UPDATE
+                    TO authenticated
+                    USING (
+                        bucket_id = 'business-logos'
+                        AND (storage.foldername(name))[1] = auth.uid()::text
+                    );
+                END IF;
+
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_policies
+                    WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'Authenticated delete own folder in business-logos'
+                ) THEN
+                    CREATE POLICY "Authenticated delete own folder in business-logos"
+                    ON storage.objects FOR DELETE
+                    TO authenticated
+                    USING (
+                        bucket_id = 'business-logos'
+                        AND (storage.foldername(name))[1] = auth.uid()::text
+                    );
+                END IF;
+            END $$;
+            """);
+        Log.Information("Supabase Storage RLS policies for 'business-logos' verified.");
+    }
+    catch (Exception ex)
+    {
+        Log.Warning(ex, "Could not auto-create storage.objects RLS policies; run supabase/storage_business_logos.sql in Supabase SQL Editor.");
     }
 }
 
@@ -114,7 +221,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseExceptionHandler();
 app.UseSerilogRequestLogging();
-app.UseCors("AllowAll");
+app.UseCors("SlotifyCors");
 if (!app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
@@ -122,6 +229,30 @@ if (!app.Environment.IsDevelopment())
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
+// Portal web estático de reservas públicas (/book y /book/{slug})
+string ResolveBookingPortalFile(string fileName)
+{
+    var siblingPath = Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, "..", "..", "..", "Slotify", "web-booking", fileName));
+    if (File.Exists(siblingPath)) return siblingPath;
+    return Path.Combine(app.Environment.ContentRootPath, "wwwroot", "book", fileName);
+}
+
+IResult ServeBookingPortalFile(string fileName, string contentType)
+{
+    var filePath = ResolveBookingPortalFile(fileName);
+    return File.Exists(filePath)
+        ? Results.File(filePath, contentType)
+        : Results.NotFound();
+}
+
+app.MapGet("/book", (HttpContext ctx) =>
+    ctx.Request.Path.Value?.EndsWith('/') == true
+        ? ServeBookingPortalFile("index.html", "text/html; charset=utf-8")
+        : Results.Redirect("/book/")).AllowAnonymous();
+app.MapGet("/book/styles.css", () => ServeBookingPortalFile("styles.css", "text/css; charset=utf-8")).AllowAnonymous();
+app.MapGet("/book/app.js", () => ServeBookingPortalFile("app.js", "application/javascript; charset=utf-8")).AllowAnonymous();
+app.MapGet("/book/{slug}", () => ServeBookingPortalFile("index.html", "text/html; charset=utf-8")).AllowAnonymous();
 
 // Health check endpoint
 app.MapGet("/health", () => Results.Ok(new { Status = "Healthy", Timestamp = DateTime.UtcNow }));

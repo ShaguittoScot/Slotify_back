@@ -23,4 +23,9 @@ public interface IBusinessRepository : IRepository<Business>
     /// Obtiene todos los negocios con sus entidades relacionadas (plantilla de sector, identidad visual de marca y catálogo de servicios).
     /// </summary>
     Task<IReadOnlyList<Business>> GetAllWithDetailsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Obtiene un negocio por su slug incluyendo plantilla de sector, marca y servicios activos.
+    /// </summary>
+    Task<Business?> GetBySlugWithDetailsAsync(string slug, CancellationToken cancellationToken = default);
 }

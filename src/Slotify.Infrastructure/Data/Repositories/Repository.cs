@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Slotify.Domain.Common;
 using Slotify.Domain.Interfaces;
 
@@ -17,7 +17,7 @@ public class Repository<T>(AppDbContext context) : IRepository<T>
     protected readonly AppDbContext _context = context;
     protected readonly DbSet<T> _dbSet = context.Set<T>();
 
-    public async Task<T?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    public virtual async Task<T?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await _dbSet.FindAsync([id], cancellationToken);
     }
@@ -34,7 +34,7 @@ public class Repository<T>(AppDbContext context) : IRepository<T>
         return entity;
     }
 
-    public async Task UpdateAsync(T entity, CancellationToken cancellationToken = default)
+    public virtual async Task UpdateAsync(T entity, CancellationToken cancellationToken = default)
     {
         _dbSet.Update(entity);
         // No SaveChanges aquí — el IUnitOfWork del handler controla el commit.

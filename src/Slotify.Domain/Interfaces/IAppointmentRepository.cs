@@ -36,6 +36,14 @@ public interface IAppointmentRepository : IRepository<Appointment>
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Obtiene las citas asociadas a un cliente consumidor por su ID de cliente o correo electrónico.
+    /// </summary>
+    Task<IReadOnlyList<Appointment>> GetByConsumerIdentityAsync(
+        Guid clientId,
+        string? email,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Valida si existe alguna cita confirmada activa que se solape con el intervalo indicado.
     /// </summary>
     Task<bool> HasActiveAppointmentConflictAsync(
