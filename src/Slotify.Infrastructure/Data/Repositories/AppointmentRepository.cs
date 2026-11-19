@@ -60,21 +60,56 @@ public class AppointmentRepository(AppDbContext context) : Repository<Appointmen
             .OrderByDescending(a => a.StartTime)
             .ToListAsync(cancellationToken);
 
-        if (appointments.Count == 0) return appointments;
+        await AttachServiceTitlesAsync(appointments, cancellationToken);
+        return appointments;
+    }
+
+    public async Task<IReadOnlyList<Appointment>> GetByConsumerIdentityAsync(
+        Guid clientId,
+        string? email,
+        CancellationToken cancellationToken = default)
+    {
+        var normalizedEmail = email?.Trim().ToLowerInvariant();
+        if (clientId == Guid.Empty && string.IsNullOrEmpty(normalizedEmail))
+            return [];
+
+        var query = _dbSet
+            .Include(a => a.Business)
+            .AsNoTracking();
+
+        query = (clientId != Guid.Empty, !string.IsNullOrEmpty(normalizedEmail)) switch
+        {
+            (true, true) => query.Where(a =>
+                a.ClientId == clientId || a.ClientEmail.ToLower() == normalizedEmail!),
+            (true, false) => query.Where(a => a.ClientId == clientId),
+            _ => query.Where(a => a.ClientEmail.ToLower() == normalizedEmail!)
+        };
+
+        var appointments = await query
+            .OrderByDescending(a => a.StartTime)
+            .ToListAsync(cancellationToken);
+
+        await AttachServiceTitlesAsync(appointments, cancellationToken);
+        return appointments;
+    }
+
+    private async Task AttachServiceTitlesAsync(List<Appointment> appointments, CancellationToken cancellationToken)
+    {
+        if (appointments.Count == 0) return;
+
+        var ids = appointments.Select(a => a.Id).ToArray();
         var titles = await _context.Database.SqlQuery<ServiceTitleRow>($"""
             SELECT cs.id_cita AS "Id",
                 string_agg(DISTINCT s.nombre::text, ' + ' ORDER BY s.nombre::text) AS "Title"
             FROM public.citas_servicios cs
             JOIN public.citas a ON a.id = cs.id_cita
             JOIN public.servicios s ON s.id = cs.id_servicio AND s.id_negocio = a.id_negocio
-            WHERE a.id_negocio = {businessId}
+            WHERE cs.id_cita = ANY({ids})
             GROUP BY cs.id_cita
             """).ToDictionaryAsync(row => row.Id, row => row.Title, cancellationToken);
 
         foreach (var appointment in appointments)
             appointment.ServiceTitle = titles.GetValueOrDefault(appointment.Id);
-
-        return appointments;
     }
 
     public async Task<bool> HasActiveAppointmentConflictAsync(

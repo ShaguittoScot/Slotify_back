@@ -140,13 +140,7 @@ public class UpdateBusinessFormConfigCommandHandler(
         };
 
         business.CustomFormConfig = JsonSerializer.Serialize(normalizedConfig, JsonOptions);
-        if (business.Brand != null)
-        {
-            business.Brand.LogoUrl = normalizedConfig.LogoUrl;
-            business.Brand.PrimaryColor = normalizedConfig.AccentColor;
-            business.Brand.IsDefault = false;
-            business.Brand.UpdatedAt = DateTime.UtcNow;
-        }
+        BusinessBrandSync.Apply(business, normalizedConfig.LogoUrl, normalizedConfig.AccentColor);
         business.UpdatedAt = DateTime.UtcNow;
 
         await _repository.UpdateAsync(business, cancellationToken);

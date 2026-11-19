@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Slotify — Reservas en Línea</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <a href="./" id="brand-home-link" class="brand-link">
+          <span class="brand-mark">S</span>
+          <span class="brand-wordmark">Slotify</span>
+        </a>
+        <div class="topbar-actions">
+          <button type="button" id="back-to-directory-btn" class="ghost-btn hidden">
+            &larr; Establecimientos
+          </button>
+          <span id="api-status-pill" class="status-pill">Conectando...</span>
+        </div>
+      </header>
+
+      <main id="app-root" class="main-content">
+        <section id="loading-view" class="panel center-panel">
+          <div class="spinner" aria-hidden="true"></div>
+          <p class="muted-text">Cargando información...</p>
+        </section>
+
+        <section id="error-view" class="panel center-panel hidden" role="alert">
+          <h1 class="error-title" id="error-title">No pudimos cargar esta vista</h1>
+          <p class="muted-text" id="error-message">
+            Verifica que la API de Slotify esté activa y accesible.
+          </p>
+          <div class="actions-row">
+            <button type="button" id="retry-btn" class="primary-btn">Reintentar</button>
+            <button type="button" id="error-directory-btn" class="secondary-btn">
+              Ver establecimientos
+            </button>
+          </div>
+        </section>
+
+        <section id="directory-view" class="hidden">
+          <div class="directory-hero">
+            <p class="eyebrow">PORTAL DE RESERVAS</p>
+            <h1>Encuentra y agenda tu cita</h1>
+            <p class="muted-text">
+              Selecciona un negocio para ver sus servicios, horarios disponibles y confirmar tu espacio.
+            </p>
+            <div class="search-wrap">
+              <input
+                type="search"
+                id="directory-search"
+                class="text-input"
+                placeholder="Buscar por nombre, giro o servicio..."
+                aria-label="Buscar establecimiento"
+              />
+            </div>
+          </div>
+
+          <div id="directory-grid" class="directory-grid"></div>
+          <div id="directory-empty" class="panel center-panel hidden">
+            <p class="muted-text">No hay establecimientos disponibles que coincidan con tu búsqueda.</p>
+          </div>
+        </section>
+
+        <section id="booking-view" class="hidden">
+          <article class="business-banner" id="business-banner">
+            <div class="banner-top">
+              <div id="business-avatar" class="business-avatar">S</div>
+              <div class="banner-meta">
+                <div class="badge-row">
+                  <span class="official-badge" id="business-sector">RESERVAS EN LÍNEA</span>
+                  <span class="tz-badge" id="business-timezone">America/Mexico_City</span>
+                </div>
+                <h1 id="business-name">Establecimiento</h1>
+                <p id="business-phone" class="banner-sub"></p>
+              </div>
+            </div>
+            <div class="banner-copy">
+              <h2 id="form-title">Reserva tu cita en línea</h2>
+              <p id="form-description"></p>
+            </div>
+          </article>
+
+          <form id="booking-form" class="booking-form" novalidate>
+            <div class="panel form-section" id="services-section">
+              <div class="section-heading">
+                <h3>1. Selecciona tus servicios</h3>
+                <span class="section-hint" id="services-summary-chip">Opcional</span>
+              </div>
+              <div id="services-list" class="services-list"></div>
+            </div>
+
+            <div class="panel form-section">
+              <div class="section-heading">
+                <h3>2. Fecha y horario</h3>
+                <span class="section-hint" id="availability-hint">Horario del negocio</span>
+              </div>
+
+              <div class="date-controls">
+                <div id="quick-days" class="quick-days"></div>
+                <label class="field-block date-input-wrap">
+                  <span class="field-label">Otra fecha</span>
+                  <input type="date" id="booking-date-input" class="text-input" required />
+                </label>
+              </div>
+
+              <div id="slots-loading" class="slots-message hidden">
+                Consultando disponibilidad...
+              </div>
+              <div id="slots-empty" class="slots-message hidden"></div>
+              <div id="time-slots-grid" class="time-slots-grid"></div>
+            </div>
+
+            <div id="custom-fields-section" class="panel form-section hidden">
+              <div class="section-heading">
+                <h3>3. Preferencias adicionales</h3>
+              </div>
+              <div id="custom-fields-container" class="custom-fields-container"></div>
+            </div>
+
+            <div class="panel form-section">
+              <div class="section-heading">
+                <h3 id="contact-section-heading">3. Tus datos de contacto</h3>
+              </div>
+              <div class="contact-grid">
+                <label class="field-block">
+                  <span class="field-label">Nombre completo *</span>
+                  <input
+                    type="text"
+                    id="client-name"
+                    class="text-input"
+                    maxlength="150"
+                    placeholder="Ej. Alejandro Gómez"
+                    required
+                  />
+                </label>
+
+                <label class="field-block">
+                  <span class="field-label">Teléfono o WhatsApp</span>
+                  <input
+                    type="tel"
+                    id="client-phone"
+                    class="text-input"
+                    maxlength="20"
+                    placeholder="Ej. +52 55 1234 5678"
+                  />
+                </label>
+
+                <label class="field-block">
+                  <span class="field-label">Correo electrónico (opcional)</span>
+                  <input
+                    type="email"
+                    id="client-email"
+                    class="text-input"
+                    maxlength="150"
+                    placeholder="tu@correo.com"
+                  />
+                </label>
+
+                <label class="field-block full-width">
+                  <span class="field-label">Notas para el establecimiento (opcional)</span>
+                  <textarea
+                    id="client-notes"
+                    class="text-input textarea-input"
+                    rows="3"
+                    maxlength="500"
+                    placeholder="Detalles adicionales, preferencias o indicaciones..."
+                  ></textarea>
+                </label>
+              </div>
+            </div>
+
+            <div id="form-error-banner" class="alert-error hidden" role="alert"></div>
+
+            <footer class="checkout-bar">
+              <div class="checkout-totals">
+                <span class="checkout-label" id="checkout-summary-text">Selecciona fecha y hora</span>
+                <strong class="checkout-price" id="checkout-total-price">$0.00</strong>
+              </div>
+              <button type="submit" id="submit-booking-btn" class="primary-btn submit-btn">
+                Confirmar y Agendar Cita
+              </button>
+            </footer>
+          </form>
+        </section>
+
+        <section id="receipt-view" class="panel receipt-panel hidden">
+          <div class="receipt-header" id="receipt-header">
+            <div class="receipt-check">&#10003;</div>
+            <h2>Reserva Confirmada</h2>
+            <p id="receipt-subtitle"></p>
+          </div>
+          <dl class="receipt-details" id="receipt-details"></dl>
+          <div class="actions-row">
+            <button type="button" id="book-another-btn" class="primary-btn">
+              Hacer otra reservación
+            </button>
+            <button type="button" id="receipt-directory-btn" class="secondary-btn">
+              Ver más negocios
+            </button>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="./app.js" defer></script>
+  </body>
+</html>
