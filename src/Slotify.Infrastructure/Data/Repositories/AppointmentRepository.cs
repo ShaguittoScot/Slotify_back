@@ -137,5 +137,23 @@ public class AppointmentRepository(AppDbContext context) : Repository<Appointmen
             cancellationToken);
     }
 
+    public async Task<IReadOnlyList<Appointment>> GetByClientIdAsync(
+        Guid clientId,
+        DateTime startDate,
+        DateTime endDate,
+        CancellationToken cancellationToken = default)
+    {
+        if (clientId == Guid.Empty)
+            return [];
+
+        return await _dbSet
+            .Include(a => a.Business)
+            .Where(a => a.ClientId == clientId
+                     && a.StartTime < endDate
+                     && a.EndTime > startDate)
+            .OrderBy(a => a.StartTime)
+            .ToListAsync(cancellationToken);
+    }
+
     private sealed record ServiceTitleRow(Guid Id, string Title);
 }
