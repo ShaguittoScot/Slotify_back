@@ -90,15 +90,48 @@ public partial class Business : AuditableEntity
     // ── Lógica de Dominio ─────────────────────────────────────────────────────
 
     /// <summary>
+    /// Segmentos de ruta reservados que no pueden ser utilizados como slug de un negocio
+    /// para evitar colisiones con endpoints del sistema o recursos de la plataforma.
+    /// </summary>
+    public static readonly IReadOnlySet<string> ReservedSlugs = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "me",
+        "admin",
+        "api",
+        "book",
+        "public",
+        "settings",
+        "auth",
+        "health",
+        "consumer",
+        "notifications",
+        "telemetry"
+    };
+
+    /// <summary>
+    /// Determina si un slug coincide con un identificador o ruta reservada de la plataforma.
+    /// </summary>
+    public static bool IsReservedSlug(string? slug) =>
+        !string.IsNullOrWhiteSpace(slug) && ReservedSlugs.Contains(slug.Trim().ToLowerInvariant());
+
+    /// <summary>
+    /// Valida si un slug es válido (no vacío y no reservado por el sistema).
+    /// </summary>
+    public static bool IsValidSlug(string? slug) =>
+        !string.IsNullOrWhiteSpace(slug) && !IsReservedSlug(slug);
+
+    /// <summary>
     /// Genera el slug URL-friendly a partir del nombre del negocio.
-    /// Regla: minúsculas, sin espacios (reemplazados por guiones).
+    /// Regla: minúsculas, sin espacios iniciales/finales, espacios internos reemplazados por guiones.
     /// Centralizado aquí (SRP) para que cualquier cambio de regla
     /// solo requiera editar esta clase.
     /// </summary>
     /// <param name="name">Nombre del negocio.</param>
     /// <returns>Slug generado. Ejemplo: "Mi Barbería" → "mi-barbería"</returns>
-    public static string GenerateSlug(string name) =>
-        name.Trim().ToLowerInvariant().Replace(" ", "-");
+    public static string GenerateSlug(string? name) =>
+        string.IsNullOrWhiteSpace(name)
+            ? string.Empty
+            : name.Trim().ToLowerInvariant().Replace(" ", "-");
 
     /// <summary>
     /// Valida que un color corporativo cumpla con el formato hexadecimal #RGB o #RRGGBB.

@@ -81,6 +81,10 @@ public class BusinessesController(IMediator mediator) : ControllerBase
 
     /// <summary>
     /// Obtiene el detalle público y catálogo de servicios de un negocio activo mediante su slug.
+    /// Diseñado para el explorador y directorio comercial general de clientes (Directorio B2C/B2B).
+    /// Devuelve información general, plantilla de sector y catálogo de servicios activos.
+    /// Para el flujo de agendamiento público del portal de reservas web (/book/{slug}),
+    /// consulte el endpoint especializado GET /api/public/businesses/{slug}.
     /// </summary>
     [AllowAnonymous]
     [HttpGet("{slug}")]

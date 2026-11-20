@@ -41,6 +41,9 @@ public class RegisterAdminHandler(
         // Fix #2 (SRP): La lógica de generación del slug pertenece al dominio Business,
         // no al handler. Cualquier cambio en la regla del slug solo requiere editar Business.cs.
         var businessSlug = Business.GenerateSlug(request.BusinessName);
+        if (Business.IsReservedSlug(businessSlug))
+            return Result<AuthUserDto>.Fail($"El nombre del negocio genera un identificador reservado por el sistema ('{businessSlug}').", ErrorType.Conflict);
+
         if (await _businessRepository.SlugExistsAsync(businessSlug, cancellationToken))
             return Result<AuthUserDto>.Fail("El nombre del negocio ya está en uso.", ErrorType.Conflict);
 

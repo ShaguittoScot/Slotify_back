@@ -117,6 +117,14 @@ public class CompleteBusinessOnboardingHandler(
                 }
 
                 var newSlug = Business.GenerateSlug(request.Business.Name);
+                if (Business.IsReservedSlug(newSlug))
+                {
+                    result = Result<AuthUserDto>.Fail(
+                        $"El nombre del negocio genera un identificador reservado por el sistema ('{newSlug}').",
+                        ErrorType.Conflict
+                    );
+                    return;
+                }
 
                 if (!string.Equals(newSlug, business.Slug, StringComparison.OrdinalIgnoreCase))
                 {

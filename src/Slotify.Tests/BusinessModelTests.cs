@@ -221,4 +221,59 @@ public class BusinessModelTests
         updated.PostalCode.Should().Be("64000");
         updated.Description.Should().Be("Nueva descripción agregada posteriormente.");
     }
+
+    [Theory]
+    [InlineData("Barbería Royal", "barbería-royal")]
+    [InlineData("Studio 42", "studio-42")]
+    [InlineData("  Clínica Central  ", "clínica-central")]
+    [InlineData("SALÓN SPA", "salón-spa")]
+    [InlineData("Taller-Mecánico", "taller-mecánico")]
+    public void GenerateSlug_NombresNormales_GeneraSlugEsperado(string name, string expected)
+    {
+        var slug = Business.GenerateSlug(name);
+        slug.Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void GenerateSlug_NombreVacioONull_RetornaStringVacio(string? name)
+    {
+        var slug = Business.GenerateSlug(name);
+        slug.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData("me")]
+    [InlineData("ME")]
+    [InlineData("Me")]
+    [InlineData("admin")]
+    [InlineData("ADMIN")]
+    [InlineData("AdMiN")]
+    [InlineData("api")]
+    [InlineData("book")]
+    [InlineData("public")]
+    [InlineData("settings")]
+    [InlineData("auth")]
+    [InlineData("  me  ")]
+    public void IsReservedSlug_SegmentosReservadosYVariacionesDeMayusculas_RetornaTrue(string slug)
+    {
+        Business.IsReservedSlug(slug).Should().BeTrue();
+        Business.IsValidSlug(slug).Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("mi-negocio")]
+    [InlineData("barberia-royal")]
+    [InlineData("mesa")]
+    [InlineData("menu")]
+    [InlineData("admin-salon")]
+    [InlineData("booking-center")]
+    [InlineData("apicius")]
+    public void IsReservedSlug_NombresNoReservados_RetornaFalse(string slug)
+    {
+        Business.IsReservedSlug(slug).Should().BeFalse();
+        Business.IsValidSlug(slug).Should().BeTrue();
+    }
 }

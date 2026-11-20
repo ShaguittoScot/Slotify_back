@@ -333,4 +333,215 @@ public class RegisterAdminHandlerTests
         membership!.Role.Should().Be(UserRole.Owner);
         membership.IsActive.Should().BeTrue();
     }
+
+    [Theory]
+    [InlineData("Me")]
+    [InlineData("me")]
+    [InlineData("admin")]
+    [InlineData("ADMIN")]
+    [InlineData("book")]
+    [InlineData("public")]
+    public async Task Handle_NombreGeneraSlugReservado_RetornaConflictYNoPersisteMembresiaNiNegocio(string reservedName)
+    {
+        // Arrange
+        var userRepoMock = new Mock<IUserRepository>();
+        var businessRepoMock = new Mock<IBusinessRepository>();
+        var unitOfWorkMock = new Mock<IUnitOfWork>();
+        var jwtMock = CreateJwtServiceMock();
+
+        userRepoMock.Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+        userRepoMock.Setup(r => r.EmailExistsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var handler = new RegisterAdminHandler(userRepoMock.Object, businessRepoMock.Object, unitOfWorkMock.Object, jwtMock.Object);
+
+        var command = new RegisterAdminCommand
+        {
+            Id = Guid.NewGuid(),
+            FirstName = "Titular",
+            LastName = "Admin",
+            Email = "titular@test.com",
+            BusinessName = reservedName
+        };
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.Success.Should().BeFalse();
+        result.ErrorType.Should().Be(ErrorType.Conflict);
+        result.Errors.Should().Contain(e => e.Contains("reservado"));
+
+        businessRepoMock.Verify(b => b.AddAsync(It.IsAny<Business>(), It.IsAny<CancellationToken>()), Times.Never);
+        userRepoMock.Verify(u => u.AddAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()), Times.Never);
+        unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_UsuarioYaExistenteYActivoConNegocio_RetornaPerfilExistenteSinCrearNegocioNiMembresia()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var businessId = Guid.NewGuid();
+        var email = "usuario.existente@test.com";
+
+        var existingBusiness = new Business
+        {
+            Id = businessId,
+            Name = "Negocio Ya Creado",
+            Slug = "negocio-ya-creado",
+            OnboardingCompletedAt = DateTime.UtcNow.AddDays(-1)
+        };
+
+        var existingUser = new User
+        {
+            Id = userId,
+            FirstName = "Carlos",
+            LastName = "Titular",
+            Email = email,
+            Role = UserRole.Owner,
+            IsActive = true,
+            BusinessId = businessId,
+            Business = existingBusiness
+        };
+
+        var userRepoMock = new Mock<IUserRepository>();
+        var businessRepoMock = new Mock<IBusinessRepository>();
+        var unitOfWorkMock = new Mock<IUnitOfWork>();
+        var jwtMock = CreateJwtServiceMock();
+
+        userRepoMock.Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingUser);
+        businessRepoMock.Setup(r => r.GetByIdAsync(businessId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingBusiness);
+
+        var handler = new RegisterAdminHandler(userRepoMock.Object, businessRepoMock.Object, unitOfWorkMock.Object, jwtMock.Object);
+
+        var command = new RegisterAdminCommand
+        {
+            Id = userId,
+            FirstName = "Otro Nombre Que No Reemplaza",
+            LastName = "Otro Apellido",
+            Email = email,
+            BusinessName = "Otro Negocio Que No Debe Crearse"
+        };
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.Success.Should().BeTrue();
+        result.Data.Should().NotBeNull();
+        result.Data!.Id.Should().Be(userId);
+        result.Data.Email.Should().Be(email);
+        result.Data.FirstName.Should().Be("Carlos");
+        result.Data.LastName.Should().Be("Titular");
+        result.Data.BusinessId.Should().Be(businessId);
+        result.Data.BusinessName.Should().Be("Negocio Ya Creado");
+        result.Data.IsOnboardingCompleted.Should().BeTrue();
+
+        // Verificación estricta de idempotencia: NO crear negocio ni membresía, NO guardar
+        businessRepoMock.Verify(b => b.AddAsync(It.IsAny<Business>(), It.IsAny<CancellationToken>()), Times.Never);
+        userRepoMock.Verify(u => u.AddAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()), Times.Never);
+        unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_UsuarioExistenteInactivo_RetornaForbidden()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var email = "inactivo@test.com";
+
+        var inactiveUser = new User
+        {
+            Id = userId,
+            FirstName = "Inactivo",
+            LastName = "Usuario",
+            Email = email,
+            Role = UserRole.Owner,
+            IsActive = false, // Inactivo
+            BusinessId = Guid.NewGuid()
+        };
+
+        var userRepoMock = new Mock<IUserRepository>();
+        var businessRepoMock = new Mock<IBusinessRepository>();
+        var unitOfWorkMock = new Mock<IUnitOfWork>();
+        var jwtMock = CreateJwtServiceMock();
+
+        userRepoMock.Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(inactiveUser);
+
+        var handler = new RegisterAdminHandler(userRepoMock.Object, businessRepoMock.Object, unitOfWorkMock.Object, jwtMock.Object);
+
+        var command = new RegisterAdminCommand
+        {
+            Id = userId,
+            FirstName = "Inactivo",
+            LastName = "Usuario",
+            Email = email,
+            BusinessName = "Intento De Negocio"
+        };
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.Success.Should().BeFalse();
+        result.ErrorType.Should().Be(ErrorType.Forbidden);
+        result.Errors.Should().Contain("No se pudo vincular esta cuenta con un negocio activo.");
+
+        businessRepoMock.Verify(b => b.AddAsync(It.IsAny<Business>(), It.IsAny<CancellationToken>()), Times.Never);
+        userRepoMock.Verify(u => u.AddAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()), Times.Never);
+        unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_UsuarioExistenteConDiscrepanciaDeEmail_RetornaForbidden()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+
+        var existingUser = new User
+        {
+            Id = userId,
+            FirstName = "Juan",
+            LastName = "Perez",
+            Email = "original@test.com",
+            Role = UserRole.Owner,
+            IsActive = true,
+            BusinessId = Guid.NewGuid()
+        };
+
+        var userRepoMock = new Mock<IUserRepository>();
+        var businessRepoMock = new Mock<IBusinessRepository>();
+        var unitOfWorkMock = new Mock<IUnitOfWork>();
+        var jwtMock = CreateJwtServiceMock();
+
+        userRepoMock.Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingUser);
+
+        var handler = new RegisterAdminHandler(userRepoMock.Object, businessRepoMock.Object, unitOfWorkMock.Object, jwtMock.Object);
+
+        var command = new RegisterAdminCommand
+        {
+            Id = userId,
+            FirstName = "Juan",
+            LastName = "Perez",
+            Email = "discrepante@test.com", // Discrepa con original@test.com
+            BusinessName = "Negocio Nuevo"
+        };
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.Success.Should().BeFalse();
+        result.ErrorType.Should().Be(ErrorType.Forbidden);
+
+        businessRepoMock.Verify(b => b.AddAsync(It.IsAny<Business>(), It.IsAny<CancellationToken>()), Times.Never);
+        userRepoMock.Verify(u => u.AddAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()), Times.Never);
+        unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
 }

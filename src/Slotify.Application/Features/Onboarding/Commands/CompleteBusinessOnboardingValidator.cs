@@ -1,4 +1,5 @@
 using FluentValidation;
+using Slotify.Domain.Entities;
 using Slotify.Domain.Interfaces;
 
 namespace Slotify.Application.Features.Onboarding.Commands;
@@ -31,7 +32,9 @@ public class CompleteBusinessOnboardingValidator
                 .NotEmpty()
                 .WithMessage("El nombre del negocio es requerido.")
                 .MaximumLength(150)
-                .WithMessage("El nombre no puede exceder 150 caracteres.");
+                .WithMessage("El nombre no puede exceder 150 caracteres.")
+                .Must(name => !Business.IsReservedSlug(Business.GenerateSlug(name)))
+                .WithMessage("El nombre del negocio genera un identificador reservado por el sistema.");
 
             RuleFor(x => x.Business.Phone)
                 .MaximumLength(20)

@@ -8,6 +8,11 @@ using Slotify.Application.Features.PublicBooking;
 
 namespace Slotify.API.Controllers;
 
+/// <summary>
+/// Endpoints públicos para el portal web de reservas (/book/{slug}) y widgets de agendamiento para clientes finales.
+/// A diferencia de /api/businesses/{slug} (orientado al directorio general), este controlador provee los contratos
+/// optimizados para la experiencia de auto-agendamiento (branding, slots de disponibilidad sin PII y citas públicas).
+/// </summary>
 [ApiController]
 [AllowAnonymous]
 [Route("api/public/businesses")]
@@ -15,11 +20,25 @@ public sealed class PublicBookingController(
     IMediator mediator,
     ISupabaseIdentityVerifier supabase) : ControllerBase
 {
+    /// <summary>
+    /// Obtiene la información del negocio adaptada específicamente al flujo de reservas públicas web (/book/{slug}).
+    /// Incluye identidad de marca (logo, color primario), servicios activos y configuración del formulario.
+    /// </summary>
     [HttpGet("{slug}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetBusiness(string slug, CancellationToken cancellationToken) =>
         (await mediator.Send(new GetPublicBusinessBookingQuery(slug), cancellationToken)).ToActionResult();
 
+    /// <summary>
+    /// Consulta los intervalos de horarios disponibles de un negocio para una fecha específica (YYYY-MM-DD).
+    /// Calcula la disponibilidad en tiempo real considerando horarios de atención, citas ocupadas y bloqueos de agenda,
+    /// sin exponer información privada (PII) de empleados ni de otros clientes.
+    /// </summary>
     [HttpGet("{slug}/availability")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetAvailability(
         string slug,
         [FromQuery] string? date,
@@ -32,7 +51,16 @@ public sealed class PublicBookingController(
             .ToActionResult();
     }
 
+    /// <summary>
+    /// Registra una nueva cita desde el portal público de reservas (/book/{slug}).
+    /// Soporta clientes anónimos/invitados (usando correo y teléfono provistos en el formulario)
+    /// o clientes autenticados en Supabase (si envían un Bearer token en el encabezado Authorization).
+    /// </summary>
     [HttpPost("{slug}/appointments")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> CreateAppointment(
         string slug,
         [FromBody] CreatePublicAppointmentCommand command,
