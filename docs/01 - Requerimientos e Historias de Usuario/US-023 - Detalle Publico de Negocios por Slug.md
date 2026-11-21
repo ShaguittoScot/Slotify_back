@@ -152,6 +152,10 @@ Y no revela datos privados ni configuración parcial del negocio.
   * `BusinessRepositoryTests.GetBySlugWithDetailsAsync_UsaAsNoTracking_NoRastreaEntidadesEnChangeTracker`
   * `BusinessRepositoryTests.GetBySlugWithDetailsAsync_RespetaCancellationToken`
 
+### Estado Real de Validación y Alcance Actual
+* **Suite Backend (`dotnet test`):** `208` pruebas superadas, `0` fallidas, `1` omitida (prueba condicional de PostgreSQL).
+* **Alcance vigente de `BusinessDetailDto`:** Expone `id`, `name`, `slug`, `phone`, `category`, `categoryKey`, `timeZone`, `minAdvanceHours`, `maxAdvanceDays`, `sectorTemplateId`, `logoUrl`, `brandColor` y `services`. Campos extendidos solicitados por la vista comercial (`coverImageUrl`, `gallery`, `staff` con nombre/avatar, `rating`, `reviewCount`) permanecen pendientes de modelado y exposición en contrato API.
+
 ---
 
 ## 🔗 Relaciones con la Arquitectura
