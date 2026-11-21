@@ -44,7 +44,9 @@ public class User : AuditableEntity
     public DateTime? LastLogin { get; set; }
 
     // ── Navegación ──────────────────────────────────────────
-    /// <summary>Negocio al que pertenece.</summary>
+    /// <summary>Negocio al que pertenece (relación 1:1 legacy preservada para compatibilidad).</summary>
     public Business Business { get; set; } = null!;
 
+    /// <summary>Vinculaciones del usuario con negocios (relación N:M).</summary>
+    public ICollection<UserBusiness> UserBusinesses { get; set; } = [];
 }

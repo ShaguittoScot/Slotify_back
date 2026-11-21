@@ -36,7 +36,7 @@ La capa **`Slotify.Application`** contiene la **lógica de negocio y casos de us
 ## 🔗 Relaciones en el Grafo
 - **Depende de:** [[Modulo Domain]]
 - **Es consumido por:** [[Modulo API]]
-- **Utiliza abstracciones de:** [[Unit of Work]], [[Repositorios]]
+- **Utiliza abstracciones de:** [[02 - Arquitectura y Capas/Unit of Work|Unit of Work]], [[Repositorios]]
 - **Flujos:** [[Flujo General de Peticion]], [[Flujo de Bloqueo de Horarios]], [[Flujo de Registro y Sync Auth]], [[Flujo de Registro y Sync Cliente Consumidor]]
 
 ```mermaid
@@ -44,6 +44,6 @@ graph LR
     API["🌐 [[Modulo API]]"] --> CQRS["🔀 Commands / Queries"]
     CQRS --> Validation["🛡️ FluentValidation"]
     Validation --> Handlers["⚙️ Feature Handlers"]
-    Handlers --> UOW["🗄️ [[Unit of Work]]"]
+    Handlers --> UOW["🗄️ [[02 - Arquitectura y Capas/Unit of Work|Unit of Work]]"]
     Handlers --> Domain["💎 [[Modulo Domain]]"]
 ```

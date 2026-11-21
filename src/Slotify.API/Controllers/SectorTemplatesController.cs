@@ -1,5 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using Slotify.API.Common;
+using Slotify.Application.Features.SectorTemplates.DTOs;
 using Slotify.Application.Features.SectorTemplates.Queries;
 
 namespace Slotify.API.Controllers;
@@ -30,10 +32,10 @@ public class SectorTemplatesController(IMediator mediator) : ControllerBase
     /// Usado por el frontend en el paso de onboarding (US-006).
     /// </remarks>
     [HttpGet]
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(IEnumerable<SectorTemplateDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
     {
         var result = await _mediator.Send(new GetSectorTemplatesQuery(), cancellationToken);
-        return Ok(result);
+        return result.ToActionResult(r => Ok(r.Data));
     }
 }

@@ -10,55 +10,82 @@ namespace Slotify.Application.Features.Onboarding.Commands;
 
 public class CompleteBusinessOnboardingHandler(
     IBusinessOnboardingPersistence persistence,
-    IBusinessRepository businessRepository
+    IBusinessRepository businessRepository,
+    ICurrentUserService currentUserService
 ) : IRequestHandler<CompleteBusinessOnboardingCommand, Result<AuthUserDto>>
 {
     private readonly IBusinessOnboardingPersistence _persistence = persistence;
     private readonly IBusinessRepository _businessRepository = businessRepository;
+    private readonly ICurrentUserService _currentUserService = currentUserService;
 
     public async Task<Result<AuthUserDto>> Handle(
         CompleteBusinessOnboardingCommand request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
+        // 1. Verificación de identidad autenticada
+        if (!_currentUserService.IsAuthenticated || _currentUserService.UserId is null || _currentUserService.UserId == Guid.Empty)
+        {
+            return Result<AuthUserDto>.Fail(
+                "No se pudo determinar la identidad del usuario autenticado.",
+                ErrorType.Forbidden
+            );
+        }
+
+        var currentUserId = _currentUserService.UserId.Value;
+
         Result<AuthUserDto>? result = null;
 
         await _persistence.ExecuteInTransactionAsync(
             async ct =>
             {
-                var user = await _persistence.GetUserWithBusinessDetailsAsync(request.Id, ct);
+                // 2. Consulta del usuario autenticado en base de datos
+                var user = await _persistence.GetUserWithBusinessDetailsAsync(currentUserId, ct);
 
                 if (user is null)
                 {
                     result = Result<AuthUserDto>.Fail(
-                        "No existe un usuario registrado con el ID proporcionado.");
+                        "No existe un usuario registrado correspondiente a la sesión autenticada.",
+                        ErrorType.NotFound
+                    );
                     return;
                 }
 
-                if (!string.Equals(
-                    user.Email.Trim(),
-                    request.Email.Trim(),
-                    StringComparison.OrdinalIgnoreCase))
+                // 3. Normalización y verificación de rol (dominio y claim del token)
+                var isTokenAdmin = string.Equals(_currentUserService.Role, nameof(UserRole.Owner), StringComparison.OrdinalIgnoreCase);
+                if (user.Role != UserRole.Owner || !isTokenAdmin)
                 {
                     result = Result<AuthUserDto>.Fail(
-                        "El correo electrónico no coincide con el usuario registrado.");
+                        "El usuario no tiene permisos de administrador del negocio.",
+                        ErrorType.Forbidden
+                    );
                     return;
                 }
 
-                if (user.Role != UserRole.Owner)
-                {
-                    result = Result<AuthUserDto>.Fail(
-                        "El usuario no tiene permisos de administrador del negocio.");
-                    return;
-                }
-
+                // 4. Verificación del negocio asociado al usuario
                 var business = user.Business;
 
                 if (business is null)
                 {
-                    result = Result<AuthUserDto>.Fail("El usuario no tiene un negocio asociado.");
+                    result = Result<AuthUserDto>.Fail(
+                        "El usuario no tiene un negocio asociado.",
+                        ErrorType.NotFound
+                    );
                     return;
                 }
 
+                // 5. Aislamiento multi-inquilino: contrastar claim businessId con el negocio del usuario
+                var tokenBusinessId = _currentUserService.BusinessId;
+                if (tokenBusinessId is null || tokenBusinessId == Guid.Empty || tokenBusinessId.Value != business.Id)
+                {
+                    result = Result<AuthUserDto>.Fail(
+                        "El negocio de la sesión no coincide con el establecimiento registrado del usuario.",
+                        ErrorType.Forbidden
+                    );
+                    return;
+                }
+
+                // 6. Idempotencia: si el onboarding ya fue completado, responder OK sin re-aplicar cambios
                 if (business.OnboardingCompletedAt.HasValue)
                 {
                     result = Result<AuthUserDto>.Ok(
@@ -69,22 +96,35 @@ public class CompleteBusinessOnboardingHandler(
                             LastName = user.LastName,
                             FullName = user.FullName,
                             Email = user.Email,
-                            Role = "DUENO",
+                            Role = user.Role.ToString(),
                             BusinessId = business.Id,
-                        });
+                            BusinessName = business.Name,
+                            IsOnboardingCompleted = true,
+                        }
+                    );
                     return;
                 }
 
-                var hasBusinessHours = await _persistence.HasBusinessHoursAsync(business.Id, ct);
-
-                if (business.Brand is not null || business.Services.Any() || hasBusinessHours)
+                // 7. Integridad: validar que no existan datos previos o parciales de configuración
+                var hasHours = await _persistence.HasBusinessHoursAsync(business.Id, ct);
+                if (business.Brand is not null || business.Services.Count > 0 || hasHours)
                 {
                     result = Result<AuthUserDto>.Fail(
-                        "El negocio contiene datos parciales de onboarding. Se requiere revisar su información antes de continuar.");
+                        "El negocio contiene datos parciales de onboarding. Se requiere revisar su información antes de continuar.",
+                        ErrorType.Conflict
+                    );
                     return;
                 }
 
                 var newSlug = Business.GenerateSlug(request.Business.Name);
+                if (Business.IsReservedSlug(newSlug))
+                {
+                    result = Result<AuthUserDto>.Fail(
+                        $"El nombre del negocio genera un identificador reservado por el sistema ('{newSlug}').",
+                        ErrorType.Conflict
+                    );
+                    return;
+                }
 
                 if (!string.Equals(newSlug, business.Slug, StringComparison.OrdinalIgnoreCase))
                 {
@@ -93,14 +133,18 @@ public class CompleteBusinessOnboardingHandler(
                     if (slugExists)
                     {
                         result = Result<AuthUserDto>.Fail(
-                            "El nombre del negocio genera un slug que ya está en uso.");
+                            "El nombre del negocio genera un slug que ya está en uso.",
+                            ErrorType.Conflict
+                        );
                         return;
                     }
                 }
 
+                // 9. Actualizar datos del administrador
                 user.FirstName = request.FirstName.Trim();
                 user.LastName = request.LastName.Trim();
 
+                // 10. Actualizar datos del negocio existente
                 business.Name = request.Business.Name.Trim();
                 business.Slug = newSlug;
                 business.Phone = string.IsNullOrWhiteSpace(request.Business.Phone)
@@ -109,6 +153,7 @@ public class CompleteBusinessOnboardingHandler(
                 business.SectorTemplateId = request.Business.SectorTemplateId;
                 business.TimeZone = request.Business.TimeZone.Trim();
 
+                // 11. Crear la marca predeterminada
                 var brand = new BusinessBrand
                 {
                     BusinessId = business.Id,
@@ -119,8 +164,9 @@ public class CompleteBusinessOnboardingHandler(
 
                 _persistence.AddBusinessBrand(brand);
 
-                var schedules = request.BusinessHours
-                    .Select(hour => new AvailabilitySchedule
+                // 12. Crear horarios generales del negocio
+                var schedules = request
+                    .BusinessHours.Select(hour => new AvailabilitySchedule
                     {
                         BusinessId = business.Id,
                         EmployeeId = null,
@@ -132,8 +178,9 @@ public class CompleteBusinessOnboardingHandler(
 
                 _persistence.AddBusinessHours(schedules);
 
-                var services = request.Services
-                    .Select(service => new Service
+                // 13. Crear los servicios recibidos
+                var services = request
+                    .Services.Select(service => new Service
                     {
                         BusinessId = business.Id,
                         Name = service.Name.Trim(),
@@ -145,8 +192,10 @@ public class CompleteBusinessOnboardingHandler(
 
                 _persistence.AddServices(services);
 
+                // 14. Marcar el onboarding como completado
                 business.OnboardingCompletedAt = DateTime.UtcNow;
 
+                // 15. Persistir todo atómicamente dentro de la transacción
                 await _persistence.SaveChangesAsync(ct);
 
                 result = Result<AuthUserDto>.Ok(
@@ -157,11 +206,15 @@ public class CompleteBusinessOnboardingHandler(
                         LastName = user.LastName,
                         FullName = user.FullName,
                         Email = user.Email,
-                        Role = "DUENO",
+                        Role = user.Role.ToString(),
                         BusinessId = business.Id,
-                    });
+                        BusinessName = business.Name,
+                        IsOnboardingCompleted = true,
+                    }
+                );
             },
-            cancellationToken);
+            cancellationToken
+        );
 
         return result ?? Result<AuthUserDto>.Fail("No fue posible completar el onboarding.");
     }

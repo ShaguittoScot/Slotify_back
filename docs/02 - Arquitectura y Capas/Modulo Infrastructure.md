@@ -25,7 +25,7 @@ El proyecto **`Slotify.Infrastructure`** implementa los detalles técnicos del s
 
 ## 📂 Componentes Clave
 * [[AppDbContext]]: El contexto central de Entity Framework Core.
-* [[Unit of Work]]: Implementación de `IUnitOfWork`.
+* [[02 - Arquitectura y Capas/Unit of Work|Unit of Work]]: Implementación de `IUnitOfWork`.
 * [[Repositorios]]: Implementaciones de `ScheduleBlockRepository`, `AppointmentRepository`, `UserRepository`, etc.
 * [[Supabase PostgreSQL]]: Conexión de base de datos en la nube.
 
@@ -38,7 +38,7 @@ El proyecto **`Slotify.Infrastructure`** implementa los detalles técnicos del s
 
 ```mermaid
 graph TD
-    App["⚙️ [[Modulo Application]]"] -->|Usa Interfaces| UOW["🗄️ [[Unit of Work]]"]
+    App["⚙️ [[Modulo Application]]"] -->|Usa Interfaces| UOW["🗄️ [[02 - Arquitectura y Capas/Unit of Work|Unit of Work]]"]
     UOW --> Repos["📂 [[Repositorios]]"]
     Repos --> DbContext["⚡ [[AppDbContext]]"]
     DbContext --> DB["☁️ [[Supabase PostgreSQL]]"]

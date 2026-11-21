@@ -36,6 +36,14 @@ public interface IAppointmentRepository : IRepository<Appointment>
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Obtiene las citas asociadas a un cliente consumidor por su ID de cliente o correo electrónico.
+    /// </summary>
+    Task<IReadOnlyList<Appointment>> GetByConsumerIdentityAsync(
+        Guid clientId,
+        string? email,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Valida si existe alguna cita confirmada activa que se solape con el intervalo indicado.
     /// </summary>
     Task<bool> HasActiveAppointmentConflictAsync(
@@ -44,5 +52,15 @@ public interface IAppointmentRepository : IRepository<Appointment>
         DateTime startDate,
         DateTime endDate,
         Guid? excludeAppointmentId = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Obtiene las citas de un cliente específico (por ClientId) en un rango de fechas.
+    /// US-Notifications: Permite al cliente ver sus propias citas próximas.
+    /// </summary>
+    Task<IReadOnlyList<Appointment>> GetByClientIdAsync(
+        Guid clientId,
+        DateTime startDate,
+        DateTime endDate,
         CancellationToken cancellationToken = default);
 }

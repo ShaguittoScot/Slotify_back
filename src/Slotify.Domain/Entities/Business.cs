@@ -12,7 +12,8 @@ public partial class Business : AuditableEntity
 {
     private static readonly Regex HexColorRegex = new(
         @"^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$",
-        RegexOptions.Compiled);
+        RegexOptions.Compiled
+    );
 
     /// <summary>Slug único para URL pública (slug).</summary>
     public string Slug { get; set; } = string.Empty;
@@ -41,12 +42,44 @@ public partial class Business : AuditableEntity
     /// <summary>Indica la fecha y hora en que el negocio completó el proceso de onboarding (onboarding_completed_at).</summary>
     public DateTime? OnboardingCompletedAt { get; set; }
 
+    /// <summary>Descripción comercial del establecimiento (descripcion).</summary>
+    public string? Description { get; set; }
+
+    // ── Ubicación Física (Establecimiento Único) ───────────────
+
+    /// <summary>Calle de la ubicación física (calle).</summary>
+    public string? Street { get; set; }
+
+    /// <summary>Número exterior del establecimiento (numero_exterior).</summary>
+    public string? ExteriorNumber { get; set; }
+
+    /// <summary>Número interior del establecimiento (numero_interior).</summary>
+    public string? InteriorNumber { get; set; }
+
+    /// <summary>Colonia o barrio del establecimiento (colonia).</summary>
+    public string? Neighborhood { get; set; }
+
+    /// <summary>Ciudad o municipio del establecimiento (ciudad).</summary>
+    public string? City { get; set; }
+
+    /// <summary>Estado o provincia del establecimiento (estado).</summary>
+    public string? State { get; set; }
+
+    /// <summary>Código postal del establecimiento (codigo_postal).</summary>
+    public string? PostalCode { get; set; }
+
+    /// <summary>Código ISO de país (codigo_pais). Default: "MX"</summary>
+    public string? CountryCode { get; set; } = "MX";
+
     // ── Navegación ────────────────────────────────────────────────────────────
     /// <summary>Plantilla de sector (giro comercial) asociada.</summary>
     public SectorTemplate? SectorTemplate { get; set; }
 
-    /// <summary>Usuarios del negocio.</summary>
+    /// <summary>Usuarios del negocio (relación legacy preservada para compatibilidad).</summary>
     public ICollection<User> Users { get; set; } = [];
+
+    /// <summary>Vinculaciones del negocio con usuarios (relación N:M).</summary>
+    public ICollection<UserBusiness> UserBusinesses { get; set; } = [];
 
     /// <summary>Identidad de marca y personalización visual.</summary>
     public BusinessBrand? Brand { get; set; }
@@ -57,15 +90,48 @@ public partial class Business : AuditableEntity
     // ── Lógica de Dominio ─────────────────────────────────────────────────────
 
     /// <summary>
+    /// Segmentos de ruta reservados que no pueden ser utilizados como slug de un negocio
+    /// para evitar colisiones con endpoints del sistema o recursos de la plataforma.
+    /// </summary>
+    public static readonly IReadOnlySet<string> ReservedSlugs = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "me",
+        "admin",
+        "api",
+        "book",
+        "public",
+        "settings",
+        "auth",
+        "health",
+        "consumer",
+        "notifications",
+        "telemetry"
+    };
+
+    /// <summary>
+    /// Determina si un slug coincide con un identificador o ruta reservada de la plataforma.
+    /// </summary>
+    public static bool IsReservedSlug(string? slug) =>
+        !string.IsNullOrWhiteSpace(slug) && ReservedSlugs.Contains(slug.Trim().ToLowerInvariant());
+
+    /// <summary>
+    /// Valida si un slug es válido (no vacío y no reservado por el sistema).
+    /// </summary>
+    public static bool IsValidSlug(string? slug) =>
+        !string.IsNullOrWhiteSpace(slug) && !IsReservedSlug(slug);
+
+    /// <summary>
     /// Genera el slug URL-friendly a partir del nombre del negocio.
-    /// Regla: minúsculas, sin espacios (reemplazados por guiones).
+    /// Regla: minúsculas, sin espacios iniciales/finales, espacios internos reemplazados por guiones.
     /// Centralizado aquí (SRP) para que cualquier cambio de regla
     /// solo requiera editar esta clase.
     /// </summary>
     /// <param name="name">Nombre del negocio.</param>
     /// <returns>Slug generado. Ejemplo: "Mi Barbería" → "mi-barbería"</returns>
-    public static string GenerateSlug(string name) =>
-        name.Trim().ToLowerInvariant().Replace(" ", "-");
+    public static string GenerateSlug(string? name) =>
+        string.IsNullOrWhiteSpace(name)
+            ? string.Empty
+            : name.Trim().ToLowerInvariant().Replace(" ", "-");
 
     /// <summary>
     /// Valida que un color corporativo cumpla con el formato hexadecimal #RGB o #RRGGBB.

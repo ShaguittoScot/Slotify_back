@@ -6,16 +6,13 @@ using Slotify.Application.Features.Onboarding.DTOs;
 namespace Slotify.Application.Features.Onboarding.Commands;
 
 /// <summary>
-/// Comando para completar el onboarding de un negocio.
-/// Recibe los datos del propietario, negocio, horarios y servicios.
+/// Comando para completar la configuración de onboarding de un negocio.
+/// Contiene exclusivamente los datos funcionales del negocio, horarios, servicios y perfil.
+/// La identidad del usuario y la pertenencia del negocio se resuelven exclusivamente desde el contexto autenticado (JWT).
 /// </summary>
 public record CompleteBusinessOnboardingCommand
     : IRequest<Result<AuthUserDto>>
 {
-    public required Guid Id { get; init; }
-
-    public required string Email { get; init; }
-
     public required string FirstName { get; init; }
 
     public string LastName { get; init; } = string.Empty;

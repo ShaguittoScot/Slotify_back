@@ -1,4 +1,5 @@
 using FluentValidation;
+using Slotify.Domain.Entities;
 using Slotify.Domain.Interfaces;
 
 namespace Slotify.Application.Features.Onboarding.Commands;
@@ -9,18 +10,7 @@ public class CompleteBusinessOnboardingValidator
     public CompleteBusinessOnboardingValidator(
         ISectorTemplateRepository sectorTemplateRepository)
     {
-        RuleFor(x => x.Id)
-            .NotEmpty()
-            .WithMessage("El ID de Supabase es requerido.");
-
-        RuleFor(x => x.Email)
-            .NotEmpty()
-            .WithMessage("El correo es requerido.")
-            .EmailAddress()
-            .WithMessage("El formato del correo no es válido.")
-            .MaximumLength(150)
-            .WithMessage("El correo no puede exceder 150 caracteres.");
-
+        // Datos del propietario
         RuleFor(x => x.FirstName)
             .NotEmpty()
             .WithMessage("El nombre del propietario es requerido.")
@@ -31,6 +21,7 @@ public class CompleteBusinessOnboardingValidator
             .MaximumLength(100)
             .WithMessage("El apellido no puede exceder 100 caracteres.");
 
+        // Datos del negocio
         RuleFor(x => x.Business)
             .NotNull()
             .WithMessage("Los datos del negocio son requeridos.");
@@ -41,7 +32,9 @@ public class CompleteBusinessOnboardingValidator
                 .NotEmpty()
                 .WithMessage("El nombre del negocio es requerido.")
                 .MaximumLength(150)
-                .WithMessage("El nombre del negocio no puede exceder 150 caracteres.");
+                .WithMessage("El nombre no puede exceder 150 caracteres.")
+                .Must(name => !Business.IsReservedSlug(Business.GenerateSlug(name)))
+                .WithMessage("El nombre del negocio genera un identificador reservado por el sistema.");
 
             RuleFor(x => x.Business.Phone)
                 .MaximumLength(20)
@@ -56,10 +49,9 @@ public class CompleteBusinessOnboardingValidator
                     var sector = await sectorTemplateRepository.GetByIdAsync(
                         sectorId,
                         cancellationToken);
-
                     return sector is not null;
                 })
-                .WithMessage("La plantilla del sector seleccionado no existe.");
+                .WithMessage("El giro comercial seleccionado no existe.");
 
             RuleFor(x => x.Business.TimeZone)
                 .NotEmpty()
@@ -70,11 +62,12 @@ public class CompleteBusinessOnboardingValidator
                 .WithMessage("La zona horaria no es válida.");
         });
 
+        // Horarios del negocio
         RuleFor(x => x.BusinessHours)
             .NotNull()
             .WithMessage("Los horarios son requeridos.")
             .NotEmpty()
-            .WithMessage("Debe configurar al menos un horario.");
+            .WithMessage("Debe configurar al menos un horario de atención.");
 
         RuleForEach(x => x.BusinessHours)
             .ChildRules(hour =>
@@ -85,7 +78,7 @@ public class CompleteBusinessOnboardingValidator
 
                 hour.RuleFor(x => x.EndTime)
                     .GreaterThan(x => x.StartTime)
-                    .WithMessage("La hora de cierre debe ser posterior a la hora de apertura.");
+                    .WithMessage("La hora de fin debe ser posterior a la de inicio.");
             });
 
         RuleFor(x => x.BusinessHours)
@@ -93,11 +86,12 @@ public class CompleteBusinessOnboardingValidator
                 hours.Select(h => h.DayOfWeek).Distinct().Count() == hours.Count)
             .WithMessage("No puede haber horarios duplicados para un mismo día.");
 
+        // Servicios
         RuleFor(x => x.Services)
             .NotNull()
             .WithMessage("La lista de servicios es requerida.")
             .NotEmpty()
-            .WithMessage("Debe registrar al menos un servicio.");
+            .WithMessage("Debe registrar al menos un servicio inicial.");
 
         RuleForEach(x => x.Services)
             .ChildRules(service =>
@@ -106,7 +100,7 @@ public class CompleteBusinessOnboardingValidator
                     .NotEmpty()
                     .WithMessage("El nombre del servicio es requerido.")
                     .MaximumLength(150)
-                    .WithMessage("El nombre del servicio no puede exceder 150 caracteres.");
+                    .WithMessage("El nombre no puede exceder 150 caracteres.");
 
                 service.RuleFor(x => x.DurationMinutes)
                     .GreaterThan(0)
@@ -120,11 +114,8 @@ public class CompleteBusinessOnboardingValidator
             });
     }
 
-    private static bool BeValidTimeZone(string? timeZone)
+    private static bool BeValidTimeZone(string timeZone)
     {
-        if (string.IsNullOrWhiteSpace(timeZone))
-            return false;
-
         try
         {
             TimeZoneInfo.FindSystemTimeZoneById(timeZone);

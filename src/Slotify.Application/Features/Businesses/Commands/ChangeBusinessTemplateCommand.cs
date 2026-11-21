@@ -14,17 +14,23 @@ public class ChangeBusinessTemplateCommandHandler(
     IBusinessRepository businessRepository,
     ISectorTemplateRepository sectorTemplateRepository,
     IUnitOfWork unitOfWork,
-    ICurrentUserService? currentUserService = null) 
+    ICurrentUserService currentUserService)
     : IRequestHandler<ChangeBusinessTemplateCommand, Result<bool>>
 {
     private readonly IBusinessRepository _businessRepository = businessRepository;
     private readonly ISectorTemplateRepository _sectorTemplateRepository = sectorTemplateRepository;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
-    private readonly ICurrentUserService? _currentUserService = currentUserService;
+    private readonly ICurrentUserService _currentUserService = currentUserService;
 
     public async Task<Result<bool>> Handle(ChangeBusinessTemplateCommand request, CancellationToken cancellationToken)
     {
-        if (_currentUserService is not null && !BelongsToAuthenticatedBusiness(request.BusinessId))
+        if (!_currentUserService.IsAuthenticated || _currentUserService.UserId is null || _currentUserService.UserId == Guid.Empty)
+            return Result<bool>.Fail("No se pudo determinar la identidad del usuario autenticado.", ErrorType.Forbidden);
+
+        if (_currentUserService.BusinessId is not { } tokenBusinessId || tokenBusinessId == Guid.Empty)
+            return Result<bool>.Fail("No se pudo determinar el negocio asociado a la sesión activa.", ErrorType.Forbidden);
+
+        if (tokenBusinessId != request.BusinessId)
             return Result<bool>.Fail("No tienes permisos para modificar otro negocio.", ErrorType.Forbidden);
 
         var business = await _businessRepository.GetByIdAsync(request.BusinessId, cancellationToken);
@@ -42,10 +48,4 @@ public class ChangeBusinessTemplateCommandHandler(
 
         return Result<bool>.Ok(true);
     }
-
-    private bool BelongsToAuthenticatedBusiness(Guid targetBusinessId) =>
-        targetBusinessId != Guid.Empty
-        && _currentUserService?.BusinessId is { } tokenBusinessId
-        && tokenBusinessId != Guid.Empty
-        && tokenBusinessId == targetBusinessId;
 }

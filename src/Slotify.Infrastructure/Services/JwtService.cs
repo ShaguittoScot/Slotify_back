@@ -17,9 +17,16 @@ public class JwtService : IJwtService
 
     public JwtService(IConfiguration configuration)
     {
-        _secret = configuration["Jwt:Secret"]
-            ?? configuration["JWT_SECRET"]
-            ?? "YOUR_JWT_SECRET_KEY_MIN_32_CHARS_LONG";
+        var secret = configuration["Jwt:Secret"]
+            ?? configuration["JWT_SECRET"];
+
+        if (string.IsNullOrWhiteSpace(secret) ||
+            string.Equals(secret, "YOUR_JWT_SECRET_KEY_MIN_32_CHARS_LONG", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Jwt:Secret is missing in configuration.");
+        }
+
+        _secret = secret;
     }
 
     public string GenerateAccessToken(User user)

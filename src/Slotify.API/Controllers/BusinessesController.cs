@@ -1,11 +1,13 @@
+using Mapster;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Slotify.API.Common;
+using System.Text.Json;
+using Slotify.Application.Common.Models;
 using Slotify.Application.Features.Businesses.Commands;
 using Slotify.Application.Features.Businesses.DTOs;
 using Slotify.Application.Features.Businesses.Queries;
-using System.Text.Json;
 
 namespace Slotify.API.Controllers;
 
@@ -20,7 +22,7 @@ public class BusinessesController(IMediator mediator) : ControllerBase
 {
     private static readonly JsonSerializerOptions CamelCaseOptions = new()
     {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
 
     private readonly IMediator _mediator = mediator;
@@ -37,11 +39,63 @@ public class BusinessesController(IMediator mediator) : ControllerBase
     [ProducesResponseType(typeof(IEnumerable<BusinessListItemDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
     {
-        var result = await _mediator.Send(
-            new GetBusinessesQuery(),
-            cancellationToken);
+        var result = await _mediator.Send(new GetBusinessesQuery(), cancellationToken);
 
-        return Ok(result);
+        return result.ToActionResult(r => Ok(r.Data));
+    }
+
+    /// <summary>
+    /// Obtiene el perfil completo y configuración del establecimiento asociado al propietario autenticado.
+    /// Resuelve la identidad y el negocio exclusivamente a partir del token JWT y las relaciones en base de datos.
+    /// </summary>
+    [HttpGet("me")]
+    [ProducesResponseType(typeof(BusinessProfileDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetMyProfile(CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(new GetMyBusinessProfileQuery(), cancellationToken);
+        return result.ToActionResult(r => Ok(r.Data));
+    }
+
+    /// <summary>
+    /// Actualiza la información general y la ubicación física del establecimiento perteneciente al propietario autenticado.
+    /// Resuelve la identidad y el negocio exclusivamente a partir del token JWT y las relaciones en base de datos.
+    /// </summary>
+    [HttpPut("me")]
+    [ProducesResponseType(typeof(BusinessProfileDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateMyProfile(
+        [FromBody] UpdateBusinessProfileRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = request.Adapt<UpdateMyBusinessProfileCommand>();
+
+        var result = await _mediator.Send(command, cancellationToken);
+        return result.ToActionResult(r => Ok(r.Data));
+    }
+
+    /// <summary>
+    /// Obtiene el detalle público y catálogo de servicios de un negocio activo mediante su slug.
+    /// Diseñado para el explorador y directorio comercial general de clientes (Directorio B2C/B2B).
+    /// Devuelve información general, plantilla de sector y catálogo de servicios activos.
+    /// Para el flujo de agendamiento público del portal de reservas web (/book/{slug}),
+    /// consulte el endpoint especializado GET /api/public/businesses/{slug}.
+    /// </summary>
+    [AllowAnonymous]
+    [HttpGet("{slug}")]
+    [ProducesResponseType(typeof(BusinessDetailDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetBySlug(
+        string slug,
+        CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(new GetBusinessBySlugQuery(slug), cancellationToken);
+        return result.ToActionResult(r => Ok(r.Data));
     }
 
     /// <summary>
@@ -56,7 +110,8 @@ public class BusinessesController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> ChangeTemplate(
         Guid id,
         [FromBody] ChangeTemplateRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var result = await _mediator.Send(
             new ChangeBusinessTemplateCommand(id, request.NewTemplateId),
@@ -79,7 +134,8 @@ public class BusinessesController(IMediator mediator) : ControllerBase
     {
         var result = await _mediator.Send(
             new GetBusinessBookingConfigQuery(slug),
-            cancellationToken);
+            cancellationToken
+        );
 
         return result.ToActionResult(r => Ok(r.Data));
     }
@@ -97,14 +153,16 @@ public class BusinessesController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> UpdateBookingConfig(
         Guid id,
         [FromBody] UpdateFormConfigRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var jsonString = JsonSerializer.Serialize(request.FormConfig, CamelCaseOptions);
         var command = new UpdateBusinessFormConfigCommand(id, jsonString);
         var result = await _mediator.Send(command, cancellationToken);
 
         return result.ToActionResult(_ =>
-            Ok(new { message = "Configuración e identidad de marca actualizadas exitosamente." }));
+            Ok(new { message = "Configuración e identidad de marca actualizadas exitosamente." })
+        );
     }
 
     /// <summary>
@@ -121,14 +179,16 @@ public class BusinessesController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> UpdateBranding(
         Guid id,
         [FromBody] UpdateBusinessBrandingRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var command = new UpdateBusinessBrandIdentityCommand(
             id,
             request.LogoUrl,
             request.AccentColor,
             request.SecondaryColor,
-            request.BusinessName);
+            request.BusinessName
+        );
 
         var result = await _mediator.Send(command, cancellationToken);
         return result.ToActionResult();

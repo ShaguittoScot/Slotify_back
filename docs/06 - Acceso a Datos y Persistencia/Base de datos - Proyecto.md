@@ -1,387 +1,289 @@
 ---
+title: Modelo de Base de Datos del Proyecto (Esquema Relacional)
 tags:
   - base-de-datos
   - er-diagram
   - proyecto
   - sql
-  - arquitectura
   - persistencia
+  - efcore
+  - postgresql
 ---
 
-# 🗄️ Modelo de Base de Datos del Proyecto (ERD)
+# 🗄️ Modelo de Base de Datos del Proyecto (Esquema Relacional)
 
 > [!abstract] Resumen del Modelo
-> Esquema relacional multi-inquilino (*multi-tenant*) diseñado para una plataforma de gestión de citas, servicios, horarios, módulos configurables y autenticación de usuarios, empleados y clientes, con soporte para CRM multi-negocio, notificaciones push y auditoría histórica de reservas.
+> Esquema relacional multi-inquilino (*multi-tenant*) diseñado para la gestión integral de reservas, catálogos de servicios comerciales, bloqueos de disponibilidad, personalización de formularios y sincronización de identidades entre **Supabase Auth** y **PostgreSQL**. Administrado en el backend mediante **ASP.NET Core .NET 9** y **Entity Framework Core (Npgsql)**.
 
 ---
 
-## 📊 1. Diagrama Entidad-Relación (Mermaid ERD)
+## 🎯 1. Marco Metodológico: Niveles de Abstracción de Datos
+
+Para garantizar rigor y trazabilidad técnica, este documento clasifica cada componente del modelo en tres niveles estrictos:
+
+1. **Entidad de Dominio:** Clase pura en C# ubicada en el proyecto `Slotify.Domain/Entities/`. Encapsula el estado y las reglas de negocio sin acoplamiento a persistencia.
+2. **Entidad Mapeada:** Entidad registrada en `AppDbContext` mediante `DbSet<T>` y configurada en `Slotify.Infrastructure/Data/Configurations/` con Fluent API (`IEntityTypeConfiguration<T>`).
+3. **Tabla Física (PostgreSQL):** Tabla relacional persistida en el motor PostgreSQL de Supabase.
+   > [!note] Estado de Verificación Física y Mecanismo de Migración
+   > - **Ausencia de Migraciones EF Core:** La solución no contiene clases de migración automática (`dotnet ef migrations`; no existe carpeta `Migrations/`).
+   > - **Sentencias DDL al Inicio:** En `Program.cs` se ejecutan sentencias SQL raw defensivas durante el arranque:
+   >   - `ALTER TABLE negocios ADD COLUMN IF NOT EXISTS configuracion_formulario_personalizada JSONB;`
+   >   - `ALTER TABLE negocios ADD COLUMN IF NOT EXISTS onboarding_completed_at TIMESTAMPTZ NULL;`
+   >   *(Nota: no existe sentencia de migración en arranque para `timezone`, la cual se mapea como propiedad regular de la entidad `Business`).*
+   > - **Verificación Física Pendiente:** En esta fase de auditoría no se ejecutó una inspección interactiva directa (`information_schema.tables`) sobre el servidor PostgreSQL de producción. Las tablas y columnas documentadas corresponden estrictamente al mapeo Fluent API verificado en código C#.
+
+---
+
+## 📊 2. Diagrama Entidad-Relación Integral (Mermaid ERD)
+
+El siguiente diagrama modela las **nueve (9) entidades relacionales mapeadas** por la solución .NET 9 a través de [[AppDbContext]] y sus configuraciones Fluent API:
 
 ```mermaid
 erDiagram
-    plantillas_sector ||--o{ negocios : "preconfigura"
-    negocios ||--|| marca_negocio : "posee"
-    negocios ||--o{ modulos_negocio : "configura"
-    modulos ||--o{ modulos_negocio : "se_asigna_en"
-    negocios ||--o{ servicios : "ofrece"
-    negocios ||--o{ usuarios : "pertenece_a"
-    usuarios ||--o| empleados : "perfil_empleado"
-    usuarios ||--o{ dispositivos_push : "registra"
-    usuarios ||--o{ sesiones_usuario : "inicia"
-    empleados ||--o{ servicios_empleados : "realiza"
-    servicios ||--o{ servicios_empleados : "es_atendido_por"
-    negocios ||--o{ horarios_disponibilidad : "define"
-    empleados ||--o{ horarios_disponibilidad : "cumple"
-    negocios ||--o{ bloqueos_agenda : "establece"
-    empleados ||--o{ bloqueos_agenda : "aplica_a"
-    negocios ||--o{ citas : "recibe"
-    empleados ||--o{ citas : "atiende"
-    clientes ||--o{ citas : "reserva"
-    citas ||--o{ citas_servicios : "contiene"
-    servicios ||--o{ citas_servicios : "incluido_en"
+    plantillas_sector ||--o{ negocios : "id_plantilla_sector (ON DELETE SET NULL)"
+    negocios ||--|| marca_negocio : "id_negocio (ON DELETE CASCADE)"
+    negocios ||--o{ usuarios : "id_negocio (ON DELETE CASCADE)"
+    negocios ||--o{ servicios : "id_negocio (ON DELETE CASCADE)"
+    negocios ||--o{ horarios_disponibilidad : "id_negocio (ON DELETE CASCADE)"
+    negocios ||--o{ bloqueos_agenda : "id_negocio (ON DELETE CASCADE)"
+    negocios ||--o{ citas : "id_negocio (ON DELETE CASCADE)"
+    clientes ||--o{ citas : "id_cliente (ON DELETE SET NULL)"
 
     plantillas_sector {
-        int id PK
-        varchar nombre
-        json modulos_defecto
-        json servicios_sugeridos
+        int id PK "SERIAL"
+        varchar nombre "NOT NULL, max 100"
+        jsonb modulos_defecto "NOT NULL, default '[]'"
+        jsonb servicios_sugeridos "NOT NULL, default '[]'"
+        jsonb configuracion_formulario "NOT NULL, default '{}'"
     }
 
     negocios {
-        uuid id PK
-        varchar slug UK
-        varchar nombre
-        varchar telefono
-        varchar zona_horaria
-        int anticipacion_minima_horas
-        int anticipacion_maxima_dias
-        int id_plantilla_sector FK
-        timestamp fecha_creacion
-        timestamp fecha_actualizacion
+        uuid id PK "default uuid_generate_v4()"
+        varchar slug UK "NOT NULL, max 100"
+        varchar nombre "NOT NULL, max 150"
+        varchar telefono "max 20"
+        varchar zona_horaria "NOT NULL, default 'America/Mexico_City'"
+        int anticipacion_minima_horas "NOT NULL, default 2"
+        int anticipacion_maxima_dias "NOT NULL, default 30"
+        int id_plantilla_sector FK "nullable"
+        jsonb configuracion_formulario_personalizada "nullable"
+        timestamptz onboarding_completed_at "nullable"
+        timestamp fecha_creacion "default CURRENT_TIMESTAMP"
+        timestamp fecha_actualizacion "default CURRENT_TIMESTAMP"
+    }
+
+    marca_negocio {
+        uuid id_negocio PK_FK "ON DELETE CASCADE"
+        text url_logotipo "nullable"
+        varchar color_primario "max 7, default '#000000'"
+        boolean es_predeterminado "default true"
+        timestamp fecha_actualizacion "default CURRENT_TIMESTAMP"
     }
 
     usuarios {
         uuid id PK
-        uuid id_negocio FK
-        varchar nombre
-        varchar apellido
-        varchar correo UK
-        varchar password_hash
-        varchar rol
-        boolean esta_activo
-        boolean correo_verificado
-        timestamp ultimo_inicio_sesion
-        timestamp fecha_creacion
-        timestamp fecha_actualizacion
+        uuid id_negocio FK "NOT NULL, ON DELETE CASCADE"
+        varchar nombre "NOT NULL, max 100"
+        varchar apellido "max 100"
+        varchar correo UK "NOT NULL, max 150"
+        varchar password_hash "NOT NULL, max 255"
+        varchar rol "NOT NULL, DUENO o EMPLEADO"
+        boolean esta_activo "default true"
+        boolean correo_verificado "default false"
+        timestamp ultimo_inicio_sesion "nullable"
+        timestamp fecha_creacion "default CURRENT_TIMESTAMP"
+        timestamp fecha_actualizacion "default CURRENT_TIMESTAMP"
     }
 
-    sesiones_usuario {
-        uuid id PK
-        uuid id_usuario FK
-        varchar token_refresco_hash UK
-        timestamp fecha_expiracion
-        boolean revocado
-        timestamp fecha_creacion
+    servicios {
+        uuid id PK "default uuid_generate_v4()"
+        uuid id_negocio FK "NOT NULL, ON DELETE CASCADE"
+        varchar nombre "NOT NULL, max 150"
+        int duracion_minutos "NOT NULL"
+        int tiempo_colchon_minutos "NOT NULL, default 0"
+        numeric precio "precision 10_2, default 0.00"
+        boolean esta_activo "default true"
+        timestamp fecha_eliminacion "nullable"
     }
 
-    dispositivos_push {
-        bigint id PK
-        uuid id_usuario FK
-        varchar token_fcm UK
-        varchar sistema_operativo
-        timestamp ultima_actividad
+    horarios_disponibilidad {
+        bigint id PK "generated on add"
+        uuid id_negocio FK "NOT NULL, ON DELETE CASCADE"
+        uuid id_empleado FK "nullable"
+        smallint dia_semana "NOT NULL, 0=Dom a 6=Sab"
+        time hora_inicio "NOT NULL"
+        time hora_fin "NOT NULL"
     }
 
-    empleados {
-        uuid id PK
-        uuid id_usuario FK, UK
-        uuid id_negocio FK
-        varchar especialidad
-        boolean esta_activo
+    bloqueos_agenda {
+        bigint id PK "BIGSERIAL / Identity Always"
+        uuid id_negocio FK "NOT NULL, ON DELETE CASCADE"
+        uuid id_empleado FK "nullable"
+        timestamp fecha_hora_inicio "NOT NULL"
+        timestamp fecha_hora_fin "NOT NULL"
+        varchar motivo "max 255"
+    }
+
+    citas {
+        uuid id PK "default uuid_generate_v4()"
+        uuid id_negocio FK "NOT NULL, ON DELETE CASCADE"
+        uuid id_empleado FK "nullable"
+        uuid id_cliente FK "nullable, ON DELETE SET NULL"
+        timestamp hora_inicio "NOT NULL"
+        timestamp hora_fin "NOT NULL"
+        varchar nombre_cliente "NOT NULL, max 150"
+        varchar correo_cliente "NOT NULL, max 150"
+        varchar telefono_cliente "NOT NULL, max 20"
+        varchar estado "NOT NULL, confirmed|cancelled|completed|no_show"
+        varchar token_cancelacion UK "NOT NULL, max 64"
+        numeric total_pactado "precision 10_2, default 0.00"
+        timestamp fecha_creacion "default CURRENT_TIMESTAMP"
+        timestamp fecha_actualizacion "default CURRENT_TIMESTAMP"
     }
 
     clientes {
         uuid id PK
-        uuid supabase_id UK
-        varchar nombre
-        varchar apellido
-        varchar correo UK
-        varchar telefono
-        timestamp fecha_creacion
-        timestamp fecha_actualizacion
-    }
-
-    marca_negocio {
-        uuid id_negocio PK, FK
-        varchar url_logotipo
-        varchar color_primario
-        boolean es_predeterminado
-        timestamp fecha_actualizacion
-    }
-
-    modulos {
-        int id PK
-        varchar codigo UK
-        varchar nombre
-    }
-
-    modulos_negocio {
-        uuid id_negocio PK, FK
-        int id_modulo PK, FK
-        boolean esta_activo
-        json configuracion
-    }
-
-    servicios {
-        uuid id PK
-        uuid id_negocio FK
-        varchar nombre
-        int duracion_minutos
-        int tiempo_colchon_minutos
-        decimal precio
-        boolean esta_activo
-        timestamp fecha_eliminacion
-    }
-
-    servicios_empleados {
-        uuid id_empleado PK, FK
-        uuid id_servicio PK, FK
-    }
-
-    horarios_disponibilidad {
-        bigint id PK
-        uuid id_negocio FK
-        uuid id_empleado FK
-        smallint dia_semana
-        time hora_inicio
-        time hora_fin
-    }
-
-    bloqueos_agenda {
-        bigint id PK
-        uuid id_negocio FK
-        uuid id_empleado FK
-        timestamptz fecha_hora_inicio
-        timestamptz fecha_hora_fin
-        varchar motivo
-    }
-
-    citas {
-        uuid id PK
-        uuid id_negocio FK
-        uuid id_empleado FK
-        uuid id_cliente FK
-        timestamptz hora_inicio
-        timestamptz hora_fin
-        varchar estado
-        varchar token_cancelacion UK
-        decimal total_pactado
-        timestamp fecha_creacion
-        timestamp fecha_actualizacion
-    }
-
-    citas_servicios {
-        uuid id PK
-        uuid id_cita FK
-        uuid id_servicio FK
-        decimal precio_historico
-        int duracion_historica_minutos
+        uuid supabase_id UK "nullable"
+        varchar nombre "NOT NULL, max 100"
+        varchar apellido "max 100"
+        varchar correo UK "NOT NULL, max 150"
+        varchar telefono "max 30"
+        timestamp fecha_creacion "default CURRENT_TIMESTAMP"
+        timestamp fecha_actualizacion "default CURRENT_TIMESTAMP"
     }
 ```
 
 ---
 
-## 🗂️ 2. Módulos y Dominios del Sistema
+## 🗂️ 3. Catálogo de Tablas, Entidades y Mapeo EF Core
 
-El esquema se divide en 5 dominios de negocio claramente delimitados:
-
-```mermaid
-graph LR
-    D1["🏢 Core & Multi-tenancy\n(negocios, marca, plantillas)"]
-    D2["🔐 Identidad y Sesiones\n(usuarios, sesiones, push)"]
-    D3["👥 Staff & Capacidades\n(empleados, servicios_empleados)"]
-    D4["📦 Catálogo & Modularidad\n(modulos, servicios)"]
-    D5["🗓️ Clientes & Agenda\n(clientes, horarios, bloqueos, citas)"]
-
-    D1 --> D2
-    D1 --> D3
-    D1 --> D4
-    D1 --> D5
-    D2 --> D3
-    D3 --> D5
-    D4 --> D5
-    D5 --> D1
-```
+| # | Entidad de Dominio | DbSet en `AppDbContext` | Tabla Mapeada | Archivo de Configuración | Clave Primaria (PK) |
+| :---: | :--- | :--- | :--- | :--- | :--- |
+| **1** | [[Entidad User]] | `Users` | `"usuarios"` | [UserConfiguration.cs](file:///D:/Aplicaciones/Slotify_back/src/Slotify.Infrastructure/Data/Configurations/UserConfiguration.cs) | `id` (UUID) |
+| **2** | [[Entidad Business]] | `Businesses` | `"negocios"` | [BusinessConfiguration.cs](file:///D:/Aplicaciones/Slotify_back/src/Slotify.Infrastructure/Data/Configurations/BusinessConfiguration.cs) | `id` (UUID) |
+| **3** | [[Entidad SectorTemplate]] | `SectorTemplates` | `"plantillas_sector"` | [SectorTemplateConfiguration.cs](file:///D:/Aplicaciones/Slotify_back/src/Slotify.Infrastructure/Data/Configurations/SectorTemplateConfiguration.cs) | `id` (int, SERIAL) |
+| **4** | [[Entidad AvailabilitySchedule]] | `AvailabilitySchedules` | `"horarios_disponibilidad"` | [AvailabilityScheduleConfiguration.cs](file:///D:/Aplicaciones/Slotify_back/src/Slotify.Infrastructure/Data/Configurations/AvailabilityScheduleConfiguration.cs) | `id` (bigint) |
+| **5** | [[Entidad ScheduleBlock]] | `ScheduleBlocks` | `"bloqueos_agenda"` | [ScheduleBlockConfiguration.cs](file:///D:/Aplicaciones/Slotify_back/src/Slotify.Infrastructure/Data/Configurations/ScheduleBlockConfiguration.cs) | `id` (bigint, Identity) |
+| **6** | [[Entidad Appointment]] | `Appointments` | `"citas"` | [AppointmentConfiguration.cs](file:///D:/Aplicaciones/Slotify_back/src/Slotify.Infrastructure/Data/Configurations/AppointmentConfiguration.cs) | `id` (UUID) |
+| **7** | [[Entidad Client]] | `Clients` | `"clientes"` | [ClientConfiguration.cs](file:///D:/Aplicaciones/Slotify_back/src/Slotify.Infrastructure/Data/Configurations/ClientConfiguration.cs) | `id` (UUID) |
+| **8** | [[Entidad BusinessBrand]] | `BusinessBrands` | `"marca_negocio"` | [BusinessBrandConfiguration.cs](file:///D:/Aplicaciones/Slotify_back/src/Slotify.Infrastructure/Data/Configurations/BusinessBrandConfiguration.cs) | `id_negocio` (UUID) |
+| **9** | [[Entidad Service]] | `Services` | `"servicios"` | [ServiceConfiguration.cs](file:///D:/Aplicaciones/Slotify_back/src/Slotify.Infrastructure/Data/Configurations/ServiceConfiguration.cs) | `id` (UUID) |
 
 ---
 
-## 📖 3. Diccionario de Entidades y Estructura
+## 🔍 4. Especificación Técnica por Tabla
 
-### 🏢 A. Núcleo de Negocio y Multi-inquilino (*Multi-tenancy*)
+### 4.1 Tabla `negocios`
+Representa al inquilino comercial (*Tenant*). Es la raíz de particionamiento lógico para usuarios, servicios, citas y disponibilidades.
+- **`id`** (`UUID`, PK): Identificador único con valor predeterminado `uuid_generate_v4()`.
+- **`slug`** (`VARCHAR(100)`, UK, Not Null): Identificador amigable y único para URLs públicas (ej. `barberia-central`).
+- **`nombre`** (`VARCHAR(150)`, Not Null): Razón social o nombre comercial.
+- **`telefono`** (`VARCHAR(20)`, Nullable): Teléfono de contacto comercial.
+- **`zona_horaria`** (`VARCHAR(50)`, Not Null): Zona horaria IANA, por defecto `'America/Mexico_City'`.
+- **`anticipacion_minima_horas`** (`INT`, Not Null): Horas de antelación para agendar, por defecto `2`.
+- **`anticipacion_maxima_dias`** (`INT`, Not Null): Días máximos hacia el futuro para reservar, por defecto `30`.
+- **`id_plantilla_sector`** (`INT`, FK, Nullable): Referencia a `plantillas_sector(id)`. Si la plantilla se elimina, se asigna `NULL` (`OnDelete(DeleteBehavior.SetNull)`).
+- **`configuracion_formulario_personalizada`** (`JSONB`, Nullable): Estructura JSON con campos dinámicos de reserva.
+- **`onboarding_completed_at`** (`TIMESTAMPTZ`, Nullable): Marca de tiempo de culminación del asistente de alta.
+- **`fecha_creacion` / `fecha_actualizacion`** (`TIMESTAMP`, Not Null): Auditoría temporal UTC.
 
-#### `plantillas_sector`
-Preconfiguraciones por industria (ej. barberías, clínicas, consultorías).
-- `id` (INT PK): Identificador autoincremental.
-- `nombre` (VARCHAR): Nombre del sector (ej. "Salón de Belleza", "Médico").
-- `modulos_defecto` (JSON): Lista de códigos de módulos activados por defecto.
-- `servicios_sugeridos` (JSON): Catálogo de servicios plantilla para onboarding rápido.
+### 4.2 Tabla `usuarios`
+Personal interno del negocio (administradores y colaboradores).
+- **`id`** (`UUID`, PK): Coincide con el UID emitido por Supabase Auth (`auth.users.id`).
+- **`id_negocio`** (`UUID`, FK, Not Null): Referencia obligatoria a `negocios(id)` con eliminación en cascada (`OnDelete(DeleteBehavior.Cascade)`).
+- **`nombre`** (`VARCHAR(100)`, Not Null) y **`apellido`** (`VARCHAR(100)`, Nullable). La propiedad `FullName` está ignorada en el mapeo (`builder.Ignore(x => x.FullName)`).
+- **`correo`** (`VARCHAR(150)`, UK, Not Null): Correo electrónico corporativo único.
+- **`password_hash`** (`VARCHAR(255)`, Not Null): Almacena `'managed_by_supabase'`.
+- **`rol`** (`VARCHAR(20)`, Not Null): Conversión de enum `UserRole` (`UserRole.Owner` ↔ `"DUENO"`, `UserRole.Employee` ↔ `"EMPLEADO"`).
+- **`esta_activo`** (`BOOLEAN`, Not Null): Por defecto `true`.
+- **`correo_verificado`** (`BOOLEAN`, Not Null): Por defecto `false`.
+- **`ultimo_inicio_sesion`** (`TIMESTAMP`, Nullable).
 
-#### `negocios`
-Inquilino raíz (*Tenant*) que aísla los datos de cada establecimiento.
-- `id` (UUID PK): Identificador único global.
-- `slug` (VARCHAR UK): Identificador amigable para URL y reservas públicas (ej. `/reservas/barberia-elite`).
-- `nombre`, `telefono`, `zona_horaria`: Datos de contacto y contexto temporal.
-- `anticipacion_minima_horas` / `anticipacion_maxima_dias`: Reglas de negocio para agendamiento.
-- `id_plantilla_sector` (INT FK): Plantilla base utilizada.
-- `fecha_creacion`, `fecha_actualizacion`: Marcas de tiempo de auditoría.
+### 4.3 Tabla `clientes`
+Consumidores finales de la plataforma (B2C). A diferencia de los usuarios, no pertenecen a un inquilino único; interactúan transversalmente con múltiples negocios.
+- **`id`** (`UUID`, PK): UUID asignado al cliente.
+- **`supabase_id`** (`UUID`, UK, Nullable): Enlace opcional y único con la cuenta en Supabase Auth (`auth.users.id`).
+- **`nombre`** (`VARCHAR(100)`, Not Null) y **`apellido`** (`VARCHAR(100)`, Nullable). `FullName` ignorado en EF Core.
+- **`correo`** (`VARCHAR(150)`, UK, Not Null): Correo electrónico personal.
+- **`telefono`** (`VARCHAR(30)`, Nullable): Teléfono de contacto para avisos de reserva.
 
-#### `marca_negocio`
-Identidad visual y personalización de marca (*White-label*). Relación 1:1 con `negocios`.
-- `id_negocio` (UUID PK, FK): Clave primaria y foránea compartida.
-- `url_logotipo`: Enlace al asset alojado en almacenamiento seguro.
-- `color_primario`: Color hexadecimal de la interfaz.
-- `es_predeterminado`: Flag booleano de personalización activa.
+### 4.4 Tabla `servicios`
+Catálogo de servicios comerciales ofrecidos por cada negocio.
+- **`id`** (`UUID`, PK): Con valor predeterminado `uuid_generate_v4()`.
+- **`id_negocio`** (`UUID`, FK, Not Null): Referencia a `negocios(id)` con eliminación en cascada.
+- **`nombre`** (`VARCHAR(150)`, Not Null): Nombre del servicio (ej. "Corte y Barba").
+- **`duracion_minutos`** (`INT`, Not Null): Duración estimada de atención en minutos.
+- **`tiempo_colchon_minutos`** (`INT`, Not Null): Tiempo de preparación entre citas, por defecto `0`.
+- **`precio`** (`NUMERIC(10,2)`, Not Null): Precio unitario, por defecto `0.00`.
+- **`esta_activo`** (`BOOLEAN`, Not Null): Por defecto `true`.
+- **`fecha_eliminacion`** (`TIMESTAMP`, Nullable): Soporte para borrado lógico (*soft delete*).
 
----
+### 4.5 Tabla `citas`
+Reservaciones de atención concertadas entre un cliente y el negocio.
+- **`id`** (`UUID`, PK): UUID generado por defecto.
+- **`id_negocio`** (`UUID`, FK, Not Null): Negocio donde se ejecutará la cita (`OnDelete(DeleteBehavior.Cascade)`).
+- **`id_empleado`** (`UUID`, FK, Nullable): Colaborador asignado.
+- **`id_cliente`** (`UUID`, FK, Nullable): Enlace con `clientes(id)` mediante eliminación `SetNull`.
+- **`hora_inicio` / `hora_fin`** (`TIMESTAMP`, Not Null): Rango horario reservado.
+- **`nombre_cliente`**, **`correo_cliente`**, **`telefono_cliente`** (`VARCHAR`, Not Null): Datos de contacto directos congelados al agendar.
+- **`estado`** (`VARCHAR(20)`, Not Null): Mapeo con enum `AppointmentStatus`:
+  - `"confirmed"`, `"cancelled"`, `"completed"`, `"no_show"`.
+- **`token_cancelacion`** (`VARCHAR(64)`, UK, Not Null): Token criptográfico para autoservicio de cancelación sin login.
+- **`total_pactado`** (`NUMERIC(10,2)`, Not Null): Monto acordado para la cita.
+- **Índices de Rendimiento:**
+  - `idx_citas_calendario`: Índice compuesto sobre `(id_negocio, hora_inicio, hora_fin)`.
+  - `idx_citas_empleado`: Índice compuesto sobre `(id_empleado, hora_inicio, hora_fin)`.
 
-### 🔐 B. Identidad, Autenticación y Dispositivos Móviles
+### 4.6 Tabla `bloqueos_agenda`
+Restricciones manuales de horario en las que no se pueden concertar citas.
+- **`id`** (`BIGINT`, PK): Clave numérica incremental administrada con `UseIdentityAlwaysColumn()`.
+- **`id_negocio`** (`UUID`, FK, Not Null): Negocio al que aplica el bloqueo (`OnDelete(DeleteBehavior.Cascade)`).
+- **`id_empleado`** (`UUID`, FK, Nullable): Si es nulo, bloquea toda la agenda del local; si tiene valor, bloquea al colaborador específico.
+- **`fecha_hora_inicio` / `fecha_hora_fin`** (`TIMESTAMP`, Not Null): Intervalo UTC del bloqueo.
+- **`motivo`** (`VARCHAR(255)`, Nullable): Causa del bloqueo (ej. "Almuerzo de equipo").
 
-#### `usuarios`
-Cuentas de acceso al sistema para administradores, recepcionistas y empleados vinculados a un negocio.
-- `id` (UUID PK): Identificador de usuario.
-- `id_negocio` (UUID FK): Inquilino al que pertenece el colaborador (`NOT NULL`).
-- `nombre` (VARCHAR): Nombre del colaborador.
-- `apellido` (VARCHAR): Apellido del colaborador.
-- `correo` (VARCHAR UK): Correo único para login.
-- `password_hash` (VARCHAR): Hash de contraseña gestionado por proveedor de identidad o cifrado.
-- `rol` (VARCHAR): Rol operativo del sistema (`ADMIN`, `RECEPCION`, `EMPLEADO`, `DUENO`).
-- `esta_activo`, `correo_verificado`: Estados de cuenta.
+### 4.7 Tabla `horarios_disponibilidad`
+Jornada de apertura regular del negocio o de un empleado para cada día de la semana.
+- **`id`** (`BIGINT`, PK): Clave generada al insertar.
+- **`id_negocio`** (`UUID`, FK, Not Null): Referencia a `negocios(id)` (`OnDelete(DeleteBehavior.Cascade)`).
+- **`id_empleado`** (`UUID`, FK, Nullable): Colaborador asignado o nulo si es el horario general del local.
+- **`dia_semana`** (`SMALLINT`, Not Null): Día de la semana (0 = Domingo, 1 = Lunes, ..., 6 = Sábado).
+- **`hora_inicio` / `hora_fin`** (`TIME WITHOUT TIME ZONE`, Not Null): Horas de apertura y cierre en formato `TimeOnly`.
 
-#### `sesiones_usuario`
-Control de tokens de refresco (*Refresh Tokens*) para autenticación segura en móvil/web.
-- `id` (UUID PK): Identificador de sesión.
-- `id_usuario` (UUID FK): Usuario autenticado.
-- `token_refresco_hash` (VARCHAR UK): Hash criptográfico del token de refresco.
-- `fecha_expiracion`: Tiempo de expiración del token.
-- `revocado`: Flag de revocación inmediata (cierre de sesión remoto).
+### 4.8 Tabla `marca_negocio`
+Identidad visual y de marca corporativa (relación 1:1 estricta con `negocios`).
+- **`id_negocio`** (`UUID`, PK y FK): Actúa simultáneamente como clave primaria y clave foránea referenciando a `negocios(id)` (`OnDelete(DeleteBehavior.Cascade)`).
+- **`url_logotipo`** (`TEXT`, Nullable): Enlace al activo gráfico del logotipo.
+- **`color_primario`** (`VARCHAR(7)`, Not Null): Color corporativo hexadecimal, por defecto `'#000000'`.
+- **`es_predeterminado`** (`BOOLEAN`, Not Null): Por defecto `true`.
+- **`fecha_actualizacion`** (`TIMESTAMP`, Not Null): Por defecto `CURRENT_TIMESTAMP`.
 
-#### `dispositivos_push`
-Registro de dispositivos móviles para notificaciones push vía FCM / APNs.
-- `id` (BIGINT PK): Identificador del registro.
-- `id_usuario` (UUID FK): Propietario del dispositivo.
-- `token_fcm` (VARCHAR UK): Token de Firebase Cloud Messaging.
-- `sistema_operativo`: `ANDROID`, `IOS`, `WEB`.
-- `ultima_actividad`: Timestamp para limpieza de tokens inactivos.
-
----
-
-### 👥 C. Staff y Capacidades
-
-#### `empleados`
-Perfil operativo del personal del negocio.
-- `id` (UUID PK): Identificador único del perfil.
-- `id_usuario` (UUID FK, UK): Usuario de acceso asociado.
-- `id_negocio` (UUID FK): Establecimiento de trabajo.
-- `especialidad` (VARCHAR): Cargo o destreza principal.
-- `esta_activo` (BOOLEAN): Estado operativo del colaborador.
-
-#### `servicios_empleados`
-Tabla puente M:N para asignar qué colaboradores realizan qué servicios específicos.
-- `id_empleado` (UUID PK, FK): Colaborador asignado.
-- `id_servicio` (UUID PK, FK): Servicio que está habilitado para prestar.
-
----
-
-### 📦 D. Módulos y Catálogo de Servicios
-
-#### `modulos` & `modulos_negocio`
-Sistema de activación de funciones a la medida (*Feature Flags* y suscripción por módulos).
-- `modulos`: Catálogo maestro de módulos del sistema (`FACTURACION`, `RECORDATORIOS_SMS`, `MARKETING`).
-- `modulos_negocio`: Tabla asociativa con campo `configuracion` (JSON) para almacenar ajustes específicos por negocio.
-
-#### `servicios`
-Catálogo de prestaciones ofrecidas:
-- `id` (UUID PK): Identificador del servicio.
-- `id_negocio` (UUID FK): Negocio que ofrece el servicio.
-- `nombre` (VARCHAR): Nombre del servicio.
-- `duracion_minutos` (INT): Tiempo estimado de ejecución.
-- `tiempo_colchon_minutos` (INT): Margen de limpieza o preparación posterior.
-- `precio` (DECIMAL): Tarifa base.
-- `esta_activo` (BOOLEAN) / `fecha_eliminacion` (TIMESTAMP): Borrado lógico (*Soft Delete*).
-
----
-
-### 🗓️ E. Clientes, Agenda y Citas
-
-#### `clientes`
-Registro global de clientes consumidores de la plataforma (**Opción 2: Separación de Dominios Staff vs Clientes**). Opera desacoplado del tenant para posibilitar una experiencia **CRM Multi-negocio**:
-- `id` (UUID PK): Identificador relacional único del cliente.
-- `supabase_id` (UUID UK): Enlace único con el registro de identidad en `auth.users` de Supabase Auth.
-- `nombre` (VARCHAR): Nombre del cliente.
-- `apellido` (VARCHAR): Apellido del cliente.
-- `correo` (VARCHAR UK): Correo electrónico del cliente para notificaciones y envío de comprobantes.
-- `telefono` (VARCHAR): Teléfono de contacto / WhatsApp para recordatorios automatizados.
-- `fecha_creacion`, `fecha_actualizacion`: Marcas de tiempo de auditoría.
-- **Propósito Arquitectónico:** Permite a un mismo usuario final agendar citas en diferentes negocios de la red sin duplicar identidades, habilitando historial unificado de citas, perfiles de fidelización y trazabilidad centralizada.
-
-#### `horarios_disponibilidad`
-Matriz de jornada laboral semanal recurrente por colaborador o negocio.
-- `id` (BIGINT PK): Identificador de la franja.
-- `id_negocio` (UUID FK): Negocio al que aplica.
-- `id_empleado` (UUID FK, Nullable): Colaborador asignado (null para horario general del negocio).
-- `dia_semana` (SMALLINT): 0 (Domingo) a 6 (Sábado) o 1 a 7 según norma ISO.
-- `hora_inicio`, `hora_fin` (TIME): Rango de disponibilidad horaria.
-
-#### `bloqueos_agenda`
-Excepciones puntuales a la disponibilidad (vacaciones, citas médicas, mantenimiento).
-- `id` (BIGINT PK): Identificador del bloqueo.
-- `id_negocio` (UUID FK): Negocio donde se aplica.
-- `id_empleado` (UUID FK, Nullable): Colaborador afectado.
-- `fecha_hora_inicio`, `fecha_hora_fin` (TIMESTAMPTZ): Intervalo exacto con zona horaria UTC.
-- `motivo` (VARCHAR): Razón del bloqueo.
-
-#### `citas` & `citas_servicios`
-Núcleo transaccional de reservas:
-- `citas`:
-  - `id` (UUID PK): Identificador único de la cita.
-  - `id_negocio` (UUID FK): Negocio donde se realiza la atención.
-  - `id_empleado` (UUID FK, Nullable): Colaborador asignado a la atención.
-  - `id_cliente` (UUID FK): Clave foránea estricta referenciando a `clientes(id)`.
-  - `hora_inicio`, `hora_fin` (TIMESTAMPTZ): Período pactado de atención.
-  - `estado`: `PENDIENTE`, `CONFIRMADA`, `CANCELADA`, `COMPLETADA`, `NO_ASISTIO`.
-  - `token_cancelacion` (VARCHAR UK): Token seguro e irrepetible para que el cliente gestione o cancele su cita sin login.
-  - `total_pactado` (DECIMAL): Monto total de la reserva.
-  - `fecha_creacion`, `fecha_actualizacion`: Marcas de tiempo de auditoría.
-- `citas_servicios`:
-  - **Inmutabilidad y Auditoría Histórica:** Almacena `precio_historico` y `duracion_historica_minutos` para evitar que futuras modificaciones del catálogo alteren citas pasadas o en curso.
+### 4.9 Tabla `plantillas_sector`
+Catálogo preconfigurado de giros comerciales (Barbería, Spa, Consultorio, etc.).
+- **`id`** (`INT`, PK): Serial autoincremental (`UseSerialColumn()`).
+- **`nombre`** (`VARCHAR(100)`, Not Null): Nombre del sector comercial.
+- **`modulos_defecto`** (`JSONB`, Not Null): Lista JSON de módulos iniciales (`'[]'::jsonb`).
+- **`servicios_sugeridos`** (`JSONB`, Not Null): Lista JSON de servicios sugeridos (`'[]'::jsonb`).
+- **`configuracion_formulario`** (`JSONB`, Not Null): Plantilla inicial de formulario (`'{}'::jsonb`).
 
 ---
 
-## 💡 4. Decisiones de Arquitectura y Buenas Prácticas Aplicadas
+## 🏛️ 5. Patrones de Persistencia y Acceso a Datos
 
-> [!tip] 1. Multi-inquilino con Aislamiento Lógico (Multi-tenancy)
-> Todas las tablas operativas principales poseen `id_negocio` como clave foránea, permitiendo consultas seguras con filtrado por inquilino y soporte de Row Level Security (RLS) en PostgreSQL.
-
-> [!tip] 2. Desacoplamiento B2C y CRM Multi-negocio (`clientes`)
-> La entidad `clientes` no posee `id_negocio`, actuando como una entidad transversal vinculada a Supabase Auth (`supabase_id`). Esto permite a los consumidores interactuar con cualquier negocio de la plataforma con una única identidad de acceso.
-
-> [!tip] 3. Manejo de Zonas Horarias (`TIMESTAMPTZ`)
-> Las citas y bloqueos utilizan marcas de tiempo con zona horaria integrada (`TIMESTAMPTZ`) almacenadas en UTC en el backend y convertidas a la `zona_horaria` del negocio en las vistas cliente.
-
-> [!tip] 4. Integridad y Auditoría Histórica
-> La tabla `citas_servicios` congela el precio y la duración pactados en el momento de la creación de la cita, desacoplando el histórico contable de cambios futuros en la tabla `servicios`.
-
-> [!tip] 5. Seguridad "Zero Trust" en Autenticación
-> Las credenciales y tokens de refresco nunca se guardan en texto plano (`password_hash`, `token_refresco_hash`). La revocación de sesiones es inmediata mediante la columna `revocado`.
+1. **Contexto Central:** [[AppDbContext]] aplica automáticamente todas las configuraciones Fluent API mediante `modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly)` y ejecuta auditoría temporal automática sobre `AuditableEntity`.
+2. **Repositorios Desacoplados:** Implementados en `Slotify.Infrastructure/Data/Repositories/`. Inyectados independientemente por DI en los CQRS Handlers:
+   - `UserRepository`, `BusinessRepository`, `AppointmentRepository`, `ScheduleBlockRepository`, `SectorTemplateRepository`, `ClientRepository`, `Repository<T>`.
+3. **Unidad de Trabajo ([[06 - Acceso a Datos y Persistencia/Unit of Work|Unit of Work]]):** `IUnitOfWork` expone exclusivamente `Task<int> SaveChangesAsync(...)`, permitiendo confirmar de forma atómica todas las mutaciones realizadas por múltiples repositorios dentro del mismo ciclo de vida *Scoped*.
+4. **Asistente Transaccional:** `IBusinessOnboardingPersistence` (`BusinessOnboardingPersistence.cs`) coordina la estrategia de ejecución `ExecuteInTransactionAsync` para dar de alta en una transacción atómica el negocio, usuario, horarios y servicios.
 
 ---
 
-## 🔗 Conexiones y Referencias
+## 🔗 Relaciones con la Bóveda
 
-- 💾 Persistencia y propiedades ACID: [[Dilema de almacenamiento]]
-- 🛡️ Autenticación stateless y Zero Trust: [[Seguridad]]
-- 🌐 Consumo y endpoints RESTful: [[Api rest y rest full]]
-- 📱 Ciclo de vida y refresco de estado en móvil: [[ciclo de vida de la aplicación]]
-- 🏗️ Arquitectura de capas y repositorios: [[Arquitecturas de Software Movil y Backend]]
-- 📋 Reglas y directrices de desarrollo: [[AGENTS.md]]
-- 🗺️ Mapa de Contenidos Principal: [[Desarrollo movil integral]]
+- **Contexto EF Core:** [[AppDbContext]]
+- **Diagrama y Resumen Relacional:** [[Modelo de Datos]]
+- **Motor Cloud:** [[Supabase PostgreSQL]]
+- **Patrón Transaccional:** [[06 - Acceso a Datos y Persistencia/Unit of Work|Unit of Work]]
+- **Repositorios:** [[Repositorios]]
+- **Entidades de Dominio:** [[Entidad User]], [[Entidad Business]], [[Entidad SectorTemplate]], [[Entidad AvailabilitySchedule]], [[Entidad ScheduleBlock]], [[Entidad Appointment]], [[Entidad Client]], [[Entidad BusinessBrand]], [[Entidad Service]]
+- **Arquitectura de Capas:** [[Modulo Infrastructure]], [[Modulo Domain]], [[Modulo Application]]

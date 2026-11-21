@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using Slotify.Application.Common.Interfaces;
 using Slotify.Application.Common.Models;
 using Slotify.Application.Features.Auth.DTOs;
@@ -31,17 +31,21 @@ public class RegisterAdminHandler(
             {
                 return Result<AuthUserDto>.Fail("No se pudo vincular esta cuenta con un negocio activo.", ErrorType.Forbidden);
             }
-            return BuildResponse(existing);
+            var existingBusiness = await _businessRepository.GetByIdAsync(existing.BusinessId, cancellationToken);
+            return BuildResponse(existing, existingBusiness?.OnboardingCompletedAt != null, existingBusiness?.Name);
         }
 
         if (await _userRepository.EmailExistsAsync(request.Email, cancellationToken))
-            return Result<AuthUserDto>.Fail("El correo electrónico ya está registrado.");
+            return Result<AuthUserDto>.Fail("El correo electrónico ya está registrado.", ErrorType.Conflict);
 
         // Fix #2 (SRP): La lógica de generación del slug pertenece al dominio Business,
         // no al handler. Cualquier cambio en la regla del slug solo requiere editar Business.cs.
         var businessSlug = Business.GenerateSlug(request.BusinessName);
+        if (Business.IsReservedSlug(businessSlug))
+            return Result<AuthUserDto>.Fail($"El nombre del negocio genera un identificador reservado por el sistema ('{businessSlug}').", ErrorType.Conflict);
+
         if (await _businessRepository.SlugExistsAsync(businessSlug, cancellationToken))
-            return Result<AuthUserDto>.Fail("El nombre del negocio ya está en uso.");
+            return Result<AuthUserDto>.Fail("El nombre del negocio ya está en uso.", ErrorType.Conflict);
 
         var business = new Business
         {
@@ -72,6 +76,21 @@ public class RegisterAdminHandler(
             Business = business
         };
 
+        var userBusiness = new UserBusiness
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            BusinessId = business.Id,
+            Role = UserRole.Owner,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+            User = user,
+            Business = business
+        };
+
+        user.UserBusinesses.Add(userBusiness);
+        business.UserBusinesses.Add(userBusiness);
+
         await _businessRepository.AddAsync(business, cancellationToken);
         await _userRepository.AddAsync(user, cancellationToken);
 
@@ -79,10 +98,10 @@ public class RegisterAdminHandler(
         // Los repositorios ya no llaman a SaveChanges internamente.
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return BuildResponse(user);
+        return BuildResponse(user, false, business.Name);
     }
 
-    private Result<AuthUserDto> BuildResponse(User user)
+    private Result<AuthUserDto> BuildResponse(User user, bool isOnboardingCompleted, string? businessName)
     {
         var accessToken = _jwtService.GenerateAccessToken(user);
         var refreshToken = _jwtService.GenerateRefreshToken();
@@ -96,6 +115,8 @@ public class RegisterAdminHandler(
             Email = user.Email,
             Role = user.Role.ToString(),
             BusinessId = user.BusinessId,
+            BusinessName = businessName,
+            IsOnboardingCompleted = isOnboardingCompleted,
             AccessToken = accessToken,
             RefreshToken = refreshToken
         });
