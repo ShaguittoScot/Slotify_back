@@ -37,9 +37,15 @@ public class ClientsController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> GetClients(
         [FromQuery] string? search,
         [FromQuery] bool includeArchived,
+        [FromQuery] bool includeHistorical,
         CancellationToken cancellationToken)
     {
-        var query = new GetBusinessClientsQuery { Search = search, IncludeArchived = includeArchived };
+        var query = new GetBusinessClientsQuery
+        {
+            Search = search,
+            IncludeArchived = includeArchived,
+            IncludeHistorical = includeHistorical
+        };
         var result = await _mediator.Send(query, cancellationToken);
         return result.ToActionResult();
     }

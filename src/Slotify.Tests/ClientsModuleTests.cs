@@ -65,6 +65,11 @@ public class ClientsModuleTests
                     BusinessClients.FirstOrDefault(c =>
                         c.BusinessId == bizId && (c.Id == id || c.ClientId == id)));
 
+            mock.Setup(r => r.GetByClientIdAndBusinessIdAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((Guid clientId, Guid bizId, CancellationToken _) =>
+                    BusinessClients.FirstOrDefault(c =>
+                        c.BusinessId == bizId && c.ClientId == clientId));
+
             mock.Setup(r => r.AddAsync(It.IsAny<BusinessClient>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync((BusinessClient entity, CancellationToken _) =>
                 {
@@ -172,10 +177,11 @@ public class ClientsModuleTests
     }
 
     [Fact]
-    public async Task GetBusinessClients_AgrupaCitasPorClienteYCalculaTotalSpentSoloDeCompletadasAislandoNegocio()
+    public async Task GetBusinessClients_SoloCuentasRegistradasEnDirectorioOficial_SinCuentaQuedaSoloEnHistoricos()
     {
         var businessA = Guid.NewGuid();
         var businessB = Guid.NewGuid();
+        var registeredClientId = Guid.NewGuid();
         var now = DateTime.UtcNow;
 
         var db = new IsolatedClientsTestDatabase();
@@ -184,6 +190,7 @@ public class ClientsModuleTests
             {
                 Id = Guid.NewGuid(),
                 BusinessId = businessA,
+                ClientId = registeredClientId,
                 ClientName = "Carlos Mendoza",
                 ClientEmail = "carlos@correo.com",
                 ClientPhone = "+52 442 111 2233",
@@ -196,6 +203,7 @@ public class ClientsModuleTests
             {
                 Id = Guid.NewGuid(),
                 BusinessId = businessA,
+                ClientId = registeredClientId,
                 ClientName = "Carlos Mendoza",
                 ClientEmail = "carlos@correo.com",
                 ClientPhone = "+52 442 111 2233",
@@ -208,6 +216,7 @@ public class ClientsModuleTests
             {
                 Id = Guid.NewGuid(),
                 BusinessId = businessA,
+                ClientId = registeredClientId,
                 ClientName = "Carlos Mendoza",
                 ClientEmail = "carlos@correo.com",
                 ClientPhone = "+52 442 111 2233",
@@ -219,7 +228,21 @@ public class ClientsModuleTests
             new Appointment
             {
                 Id = Guid.NewGuid(),
+                BusinessId = businessA,
+                ClientId = null, // Contacto ocasional sin cuenta registrada en Slotify
+                ClientName = "Invitado Ocasional",
+                ClientEmail = "ocasional@correo.com",
+                ClientPhone = "+52 442 555 0000",
+                StartTime = now.AddDays(-1),
+                EndTime = now.AddDays(-1).AddHours(1),
+                Status = AppointmentStatus.Completed,
+                AgreedTotal = 180m
+            },
+            new Appointment
+            {
+                Id = Guid.NewGuid(),
                 BusinessId = businessB, // Otro negocio: no debe filtrarse a Negocio A
+                ClientId = Guid.NewGuid(),
                 ClientName = "Cliente Intruso",
                 ClientEmail = "intruso@otro.com",
                 ClientPhone = "+52 555 999 8888",
@@ -235,15 +258,18 @@ public class ClientsModuleTests
             db.CreateAppointmentRepoMock().Object,
             CreateCurrentUserForBusiness(businessA));
 
-        var result = await handler.Handle(new GetBusinessClientsQuery(), CancellationToken.None);
+        // 1. Consulta predeterminada del directorio oficial: excluye contactos ocasionales sin cuenta
+        var officialResult = await handler.Handle(new GetBusinessClientsQuery(), CancellationToken.None);
 
-        result.Success.Should().BeTrue();
-        result.Data.Should().HaveCount(1);
+        officialResult.Success.Should().BeTrue();
+        officialResult.Data.Should().HaveCount(1);
 
-        var carlos = result.Data![0];
+        var carlos = officialResult.Data![0];
         carlos.FullName.Should().Be("Carlos Mendoza");
         carlos.Email.Should().Be("carlos@correo.com");
         carlos.Phone.Should().Be("+52 442 111 2233");
+        carlos.HasSlotifyAccount.Should().BeTrue();
+        carlos.IsOfficialDirectory.Should().BeTrue();
         carlos.TotalVisits.Should().Be(2); // 1 completada + 1 confirmada
         carlos.CompletedVisits.Should().Be(1);
         carlos.CancelledVisits.Should().Be(1);
@@ -251,6 +277,19 @@ public class ClientsModuleTests
         carlos.LastVisitAt.Should().NotBeNull();
         carlos.NextVisitAt.Should().NotBeNull();
         carlos.Appointments.Should().HaveCount(3);
+
+        // 2. Consulta con IncludeHistorical = true: devuelve además los agendamientos sin cuenta como registro histórico
+        var withHistorical = await handler.Handle(
+            new GetBusinessClientsQuery { IncludeHistorical = true },
+            CancellationToken.None);
+
+        withHistorical.Success.Should().BeTrue();
+        withHistorical.Data.Should().HaveCount(2);
+        var guest = withHistorical.Data!.Single(c => c.FullName == "Invitado Ocasional");
+        guest.IsOfficialDirectory.Should().BeFalse();
+        guest.HasSlotifyAccount.Should().BeFalse();
+        guest.IsRegistered.Should().BeFalse();
+        guest.TotalSpent.Should().Be(180m);
     }
 
     [Fact]
@@ -796,6 +835,149 @@ public class ClientsModuleTests
             .StatusCode.Should().Be(HttpStatusCode.OK);
         (await client.GetStringAsync("/api/clients")).Should().NotContain(note);
         apptRepoMock.Verify(r => r.UpdateAsync(It.IsAny<Appointment>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task HttpPipeline_PublicBooking_SoloCuentasRegistradasSeIntegranAlDirectorioOficial()
+    {
+        var businessId = Guid.NewGuid();
+        var business = new Business
+        {
+            Id = businessId,
+            Name = "Barbería Elite",
+            Slug = "barberia-elite",
+            TimeZone = "America/Mexico_City"
+        };
+        var verifiedUserId = Guid.NewGuid();
+        var db = new IsolatedClientsTestDatabase();
+        var bizClientRepoMock = db.CreateBusinessClientRepoMock();
+        var apptRepoMock = db.CreateAppointmentRepoMock();
+        apptRepoMock.Setup(r => r.GetByDateRangeAsync(businessId, It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid _, DateTime start, DateTime end, CancellationToken _) =>
+                db.Appointments.Where(a => a.BusinessId == businessId && a.StartTime < end && a.EndTime > start).ToList());
+        apptRepoMock.Setup(r => r.AddAsync(It.IsAny<Appointment>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Appointment a, CancellationToken _) =>
+            {
+                db.Appointments.Add(a);
+                return a;
+            });
+
+        var clientRepoMock = new Mock<IClientRepository>();
+        clientRepoMock.Setup(r => r.GetBySupabaseIdAsync(verifiedUserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => db.GlobalClients.FirstOrDefault(c => c.SupabaseId == verifiedUserId));
+        clientRepoMock.Setup(r => r.GetByIdAsync(verifiedUserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => db.GlobalClients.FirstOrDefault(c => c.Id == verifiedUserId));
+        clientRepoMock.Setup(r => r.GetByEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string email, CancellationToken _) =>
+                db.GlobalClients.FirstOrDefault(c => string.Equals(c.Email, email, StringComparison.OrdinalIgnoreCase)));
+        clientRepoMock.Setup(r => r.AddAsync(It.IsAny<Client>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Client c, CancellationToken _) =>
+            {
+                db.GlobalClients.Add(c);
+                return c;
+            });
+
+        var businessRepoMock = new Mock<IBusinessRepository>();
+        businessRepoMock.Setup(r => r.GetBySlugAsync("barberia-elite", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(business);
+        businessRepoMock.Setup(r => r.GetByIdAsync(businessId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(business);
+
+        var blockRepoMock = new Mock<IScheduleBlockRepository>();
+        blockRepoMock.Setup(r => r.GetByDateRangeAsync(businessId, It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+
+        var supabaseMock = new Mock<Slotify.API.Services.ISupabaseIdentityVerifier>();
+        supabaseMock.Setup(v => v.VerifyAsync("supa-verified-token", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Slotify.API.Services.SupabaseIdentity(
+                verifiedUserId,
+                "mariana@slotify.app",
+                "Mariana",
+                "Vega",
+                "Mariana Vega",
+                "+52 442 777 8899"));
+
+        var uowMock = db.CreateUnitOfWorkMock();
+
+        using var factory = new WebApplicationFactory<Program>()
+            .WithWebHostBuilder(builder =>
+            {
+                builder.ConfigureAppConfiguration((_, config) =>
+                {
+                    config.AddInMemoryCollection(new Dictionary<string, string?>
+                    {
+                        ["Jwt:Secret"] = TestJwtSecret,
+                        ["ConnectionStrings:DefaultConnection"] = "Host=localhost;Port=5432;Database=slotify_test;Username=postgres;Password=postgres"
+                    });
+                });
+
+                builder.ConfigureServices(services =>
+                {
+                    services.RemoveAll<Microsoft.EntityFrameworkCore.DbContextOptions<Slotify.Infrastructure.Data.AppDbContext>>();
+                    services.AddDbContext<Slotify.Infrastructure.Data.AppDbContext>(options =>
+                        Microsoft.EntityFrameworkCore.NpgsqlDbContextOptionsBuilderExtensions.UseNpgsql(
+                            options,
+                            "Host=127.0.0.1;Port=1;Database=slotify_isolated_test;Username=postgres;Password=postgres;Timeout=1"));
+
+                    services.RemoveAll<IBusinessClientRepository>();
+                    services.RemoveAll<IAppointmentRepository>();
+                    services.RemoveAll<IClientRepository>();
+                    services.RemoveAll<IBusinessRepository>();
+                    services.RemoveAll<IScheduleBlockRepository>();
+                    services.RemoveAll<IUnitOfWork>();
+                    services.RemoveAll<Slotify.API.Services.ISupabaseIdentityVerifier>();
+                    services.RemoveAll<Slotify.Application.Features.Calendar.ICalendarDatabase>();
+
+                    services.AddScoped(_ => bizClientRepoMock.Object);
+                    services.AddScoped(_ => apptRepoMock.Object);
+                    services.AddScoped(_ => clientRepoMock.Object);
+                    services.AddScoped(_ => businessRepoMock.Object);
+                    services.AddScoped(_ => blockRepoMock.Object);
+                    services.AddScoped(_ => uowMock.Object);
+                    services.AddScoped(_ => supabaseMock.Object);
+                    services.AddScoped<Slotify.Application.Features.Calendar.ICalendarDatabase, TestCalendarDatabase>();
+                });
+            });
+
+        using var client = factory.CreateClient();
+
+        // 1. Reserva de invitado SIN cuenta (sin Authorization)
+        var guestStart = new DateTime(2026, 12, 10, 16, 0, 0, DateTimeKind.Utc);
+        var guestBooking = await client.PostAsJsonAsync("/api/public/businesses/barberia-elite/appointments", new
+        {
+            startTime = guestStart,
+            durationMinutes = 30,
+            clientName = "Invitado Ocasional",
+            clientPhone = "4421112222",
+            agreedTotal = 200m
+        });
+        guestBooking.StatusCode.Should().Be(HttpStatusCode.OK);
+        db.BusinessClients.Should().BeEmpty();
+
+        // 2. Reserva de usuario CON cuenta verificada en Slotify
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "supa-verified-token");
+        var registeredStart = new DateTime(2026, 12, 10, 17, 0, 0, DateTimeKind.Utc);
+        var accountBooking = await client.PostAsJsonAsync("/api/public/businesses/barberia-elite/appointments", new
+        {
+            startTime = registeredStart,
+            durationMinutes = 45,
+            clientName = "Mariana Vega",
+            clientPhone = "+52 442 777 8899",
+            agreedTotal = 450m
+        });
+        accountBooking.StatusCode.Should().Be(HttpStatusCode.OK);
+        db.BusinessClients.Should().ContainSingle(c => c.ClientId == verifiedUserId && c.BusinessId == businessId);
+
+        // 3. El dueño consulta su directorio oficial (/api/clients): SOLO aparece Mariana Vega
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", GenerateJwt(businessId));
+        var officialBody = await client.GetStringAsync("/api/clients");
+        officialBody.Should().Contain("Mariana Vega");
+        officialBody.Should().NotContain("Invitado Ocasional");
+
+        // 4. Si consulta con includeHistorical=true, también ve al invitado como registro histórico
+        var historicalBody = await client.GetStringAsync("/api/clients?includeHistorical=true");
+        historicalBody.Should().Contain("Mariana Vega");
+        historicalBody.Should().Contain("Invitado Ocasional");
     }
 
     private static string GenerateJwt(Guid businessId)

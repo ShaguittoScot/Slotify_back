@@ -4,7 +4,13 @@ using System.Text.Json.Serialization;
 
 namespace Slotify.API.Services;
 
-public record SupabaseIdentity(Guid Id, string Email);
+public record SupabaseIdentity(
+    Guid Id,
+    string Email,
+    string? FirstName = null,
+    string? LastName = null,
+    string? FullName = null,
+    string? Phone = null);
 
 public interface ISupabaseIdentityVerifier
 {
@@ -37,9 +43,34 @@ public sealed class SupabaseIdentityVerifier(HttpClient client, IConfiguration c
 
         response.EnsureSuccessStatusCode();
         var user = await response.Content.ReadFromJsonAsync<SupabaseUser>(cancellationToken);
-        return user is { IsAnonymous: false, Id: var id, Email: var email } && id != Guid.Empty &&
-            !string.IsNullOrWhiteSpace(email) ? new SupabaseIdentity(id, email) : null;
+        if (user is not { IsAnonymous: false, Id: var id, Email: var email } || id == Guid.Empty ||
+            string.IsNullOrWhiteSpace(email))
+        {
+            return null;
+        }
+
+        var meta = user.UserMetadata;
+        var fullName = meta?.FullName ?? meta?.Name;
+        return new SupabaseIdentity(
+            id,
+            email,
+            meta?.FirstName,
+            meta?.LastName,
+            fullName,
+            meta?.Phone ?? user.Phone);
     }
 
-    private sealed record SupabaseUser(Guid Id, string? Email, [property: JsonPropertyName("is_anonymous")] bool IsAnonymous);
+    private sealed record SupabaseUser(
+        Guid Id,
+        string? Email,
+        string? Phone,
+        [property: JsonPropertyName("is_anonymous")] bool IsAnonymous,
+        [property: JsonPropertyName("user_metadata")] SupabaseUserMetadata? UserMetadata);
+
+    private sealed record SupabaseUserMetadata(
+        [property: JsonPropertyName("first_name")] string? FirstName,
+        [property: JsonPropertyName("last_name")] string? LastName,
+        [property: JsonPropertyName("full_name")] string? FullName,
+        [property: JsonPropertyName("name")] string? Name,
+        [property: JsonPropertyName("phone")] string? Phone);
 }

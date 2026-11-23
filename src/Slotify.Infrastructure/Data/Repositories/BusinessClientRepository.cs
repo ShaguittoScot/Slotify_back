@@ -52,5 +52,19 @@ public class BusinessClientRepository(AppDbContext context)
             .OrderByDescending(c => c.Id == id)
             .FirstOrDefaultAsync(cancellationToken);
     }
+
+    public async Task<BusinessClient?> GetByClientIdAndBusinessIdAsync(
+        Guid clientId,
+        Guid businessId,
+        CancellationToken cancellationToken = default)
+    {
+        if (clientId == Guid.Empty || businessId == Guid.Empty)
+            return null;
+
+        return await _dbSet
+            .Where(c => c.BusinessId == businessId && c.ClientId == clientId)
+            .OrderByDescending(c => c.UpdatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
 }
 

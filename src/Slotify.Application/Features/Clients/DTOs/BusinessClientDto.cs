@@ -14,6 +14,12 @@ public class BusinessClientDto
 
     public bool IsRegistered { get; set; }
 
+    /// <summary>Indica si el cliente tiene una cuenta verificada registrada en Slotify.</summary>
+    public bool HasSlotifyAccount { get; set; }
+
+    /// <summary>Indica si forma parte del directorio oficial del negocio o es solo registro histórico.</summary>
+    public bool IsOfficialDirectory { get; set; }
+
     public DateTime? ArchivedAt { get; set; }
 
     /// <summary>Nombre completo del cliente.</summary>
