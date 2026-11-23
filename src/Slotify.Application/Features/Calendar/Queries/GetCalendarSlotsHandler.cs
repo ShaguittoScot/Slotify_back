@@ -91,7 +91,9 @@ public class GetCalendarSlotsHandler(
                 AgreedTotal = apt.AgreedTotal,
                 EmployeeId = apt.EmployeeId,
                 BlockReason = null,
-                EmployeeName = apt.EmployeeId is { } employeeId ? employees.GetValueOrDefault(employeeId) : null
+                EmployeeName = apt.EmployeeId is { } employeeId ? employees.GetValueOrDefault(employeeId) : null,
+                ClientId = apt.ClientId,
+                HasRegisteredAccount = apt.ClientId.HasValue
             });
         }
 

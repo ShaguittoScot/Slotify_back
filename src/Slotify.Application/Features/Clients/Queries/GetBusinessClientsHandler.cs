@@ -48,6 +48,10 @@ public class GetBusinessClientsHandler(
             .ToList();
 
         IEnumerable<BusinessClientDto> clients = BuildPortfolio(registeredClients, appointments);
+        if (!request.IncludeHistorical)
+        {
+            clients = clients.Where(c => c.IsOfficialDirectory);
+        }
         if (!request.IncludeArchived)
         {
             clients = clients.Where(c => c.ArchivedAt is null);
@@ -117,9 +121,10 @@ public class GetBusinessClientsHandler(
             }
             else
             {
-                // Cita sin ClientId: verificar si coincide de forma única e inequívoca con una ficha registrada
+                // Cita sin ClientId: solo puede asociarse a fichas manuales sin cuenta registrada
+                // para evitar que invitados anónimos inyecten historial en cuentas verificadas.
                 var matchingRegistered = registeredClients
-                    .Where(reg => DoesUnlinkedAppointmentMatchRegistered(appointment, reg))
+                    .Where(reg => reg.ClientId is null && DoesUnlinkedAppointmentMatchRegistered(appointment, reg))
                     .ToList();
 
                 if (matchingRegistered.Count == 1)
@@ -305,11 +310,18 @@ public class GetBusinessClientsHandler(
             createdAt = nowUtc;
         }
 
+        var hasSlotifyAccount =
+            (reg?.ClientId is { } regClientId && regClientId != Guid.Empty) ||
+            orderedAppointments.Any(a => a.ClientId is { } apptClientId && apptClientId != Guid.Empty);
+        var isOfficialDirectory = reg is not null || hasSlotifyAccount;
+
         return new BusinessClientDto
         {
             Id = editableId?.ToString("D") ?? bucket.Key,
             ClientId = editableId,
             IsRegistered = reg is not null,
+            HasSlotifyAccount = hasSlotifyAccount,
+            IsOfficialDirectory = isOfficialDirectory,
             ArchivedAt = reg?.ArchivedAt,
             FullName = fullName,
             FirstName = firstName,

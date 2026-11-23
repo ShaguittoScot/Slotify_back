@@ -14,5 +14,8 @@ public record GetBusinessClientsQuery : IRequest<Result<IReadOnlyList<BusinessCl
     public string? Search { get; init; }
 
     public bool IncludeArchived { get; init; }
+
+    /// <summary>Incluye registros históricos de agendamientos sin cuenta registrada en Slotify.</summary>
+    public bool IncludeHistorical { get; init; }
 }
 

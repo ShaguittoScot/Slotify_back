@@ -40,6 +40,12 @@ public record CalendarSlotDto
 
     /// <summary>Nombre del empleado asignado.</summary>
     public string? EmployeeName { get; init; }
+
+    /// <summary>ID del cliente registrado en Slotify (null si agendó sin cuenta).</summary>
+    public Guid? ClientId { get; init; }
+
+    /// <summary>Indica si la cita pertenece a una cuenta registrada en Slotify.</summary>
+    public bool HasRegisteredAccount { get; init; }
 }
 
 /// <summary>

@@ -38,7 +38,7 @@ public sealed class PublicBookingController(
         [FromBody] CreatePublicAppointmentCommand command,
         CancellationToken cancellationToken)
     {
-        Guid? clientId = null;
+        SupabaseIdentity? identity = null;
         string? email = command.ClientEmail;
 
         if (AuthenticationHeaderValue.TryParse(Request.Headers.Authorization, out var header) &&
@@ -47,21 +47,31 @@ public sealed class PublicBookingController(
         {
             try
             {
-                var identity = await supabase.VerifyAsync(header.Parameter, cancellationToken);
-                if (identity is not null)
+                identity = await supabase.VerifyAsync(header.Parameter, cancellationToken);
+                if (identity is not null && string.IsNullOrWhiteSpace(email))
                 {
-                    clientId = identity.Id;
-                    if (string.IsNullOrWhiteSpace(email))
-                        email = identity.Email;
+                    email = identity.Email;
                 }
             }
             catch
             {
                 // Las reservas públicas también permiten invitados sin sesión válida.
+                identity = null;
             }
         }
 
-        var normalized = command with { Slug = slug, ClientId = clientId, ClientEmail = email };
+        var normalized = command with
+        {
+            Slug = slug,
+            ClientId = identity?.Id,
+            ClientEmail = email,
+            IsVerifiedAccount = identity is not null,
+            VerifiedEmail = identity?.Email,
+            VerifiedFirstName = identity?.FirstName,
+            VerifiedLastName = identity?.LastName,
+            VerifiedFullName = identity?.FullName,
+            VerifiedPhone = identity?.Phone,
+        };
         return (await mediator.Send(normalized, cancellationToken)).ToActionResult();
     }
 }

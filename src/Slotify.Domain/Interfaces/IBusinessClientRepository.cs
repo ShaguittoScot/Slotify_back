@@ -27,5 +27,13 @@ public interface IBusinessClientRepository : IRepository<BusinessClient>
         Guid id,
         Guid businessId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Obtiene la ficha de cartera vinculada explícitamente a una cuenta global registrada de Slotify en el negocio.
+    /// </summary>
+    Task<BusinessClient?> GetByClientIdAndBusinessIdAsync(
+        Guid clientId,
+        Guid businessId,
+        CancellationToken cancellationToken = default);
 }
 

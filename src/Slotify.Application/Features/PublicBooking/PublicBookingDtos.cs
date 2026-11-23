@@ -39,7 +39,8 @@ public record PublicAppointmentConfirmationDto(
     string ClientName,
     decimal AgreedTotal,
     string Status,
-    string CancellationToken);
+    string CancellationToken,
+    bool IsRegisteredClient = false);
 
 public record ConsumerAppointmentDto(
     Guid Id,
